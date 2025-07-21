@@ -1,0 +1,134 @@
+{
+  "Digitale GPIO Sensoren": {
+    "DHT11/DHT22": {
+      "plattform": "dht",
+      "werte": [ "Temperatur", "Luftfeuchtigkeit" ],
+      "required": [ "pin", "Tempname", "HumidityName" ],
+      "optional": [ "update_interval", "model" ]
+    },
+    "DS18B20": {
+      "plattform": "dallas_temp",
+      "werte": [ "Temperatur" ],
+      "required": [ "address" ],
+      "optional": [ "pin", "update_interval", "name" ]
+    },
+    "HC-SR04": {
+      "plattform": "ultrasonic",
+      "werte": [ "Abstand" ],
+      "required": [ "trigger_pin", "echo_pin" ],
+      "optional": [ "name", "timeout", "update_interval", "pulse_time", "id" ]
+    },
+  },
+  "I2C Sensoren": {
+    "BMP280": {
+      "plattform": "bmp280_i2c",
+      "werte": [ "Temperatur", "Luftdruck" ],
+      "required": [ "address" ],
+      "optional": [ "Tempname", "TempOversampling","PressureName","PressureOversampling","update_interval",],
+      "info": ["I2C Bus notwendig"]
+    },
+    "BME280": {
+      "plattform": "bme280_i2c",
+      "werte": [ "Temperatur", "Luftfeuchtigkeit", "Luftdruck" ],
+      "required": [ "address" ],
+      "optional": [ "update_interval","Tempname", "PressureName", "HumidityName" ],
+      "info": [ "I2C Bus notwendig" ]
+    },
+    "BH1750": {
+      "plattform": "bh1750",
+      "werte": [ "Helligkeit (Lux)" ],
+      "required": ["address"],
+      "optional": [ "name", "update_interval" ],
+      "info": [ "I2C Bus notwendig" ]
+    },
+    "SHT3X-D": {
+      "plattform": "sht3xd",
+      "werte": [ "Temperatur", "Luftfeuchtigkeit" ],
+      "required": ["address"],
+      "optional": [ "Tempname", "HumidityName", "update_interval" ],
+      "info": [ "I2C Bus notwendig" ]
+    },
+    "MAX44009": {
+      "plattform": "max44009",
+      "werte": [ "Helligkeit (Lux)" ],
+      "required": [],
+      "optional": [ "update_interval" ],
+      "info": [ "I2C Bus notwendig" ]
+    },
+    "INA219": {
+      "plattform": "ina219",
+      "werte": [ "Spannung", "Strom", "Leistung" ],
+      "required": [],
+      "optional": [ "address", "current_resistance", "voltage_divider" ],
+      "info": [ "I2C Bus notwendig" ]
+    }
+  },
+  "SPI Sensoren": {
+    "MAX6675": {
+      "plattform": "max6675",
+      "werte": [ "Temperatur (K-Typ)" ],
+      "required": [ "cs_pin" ],
+      "optional": []
+    },
+    "MAX31855": {
+      "plattform": "max31855",
+      "werte": [ "Temperatur (K-Typ, genau)" ],
+      "required": [ "cs_pin" ],
+      "optional": []
+    }
+  },
+  "Interne Sensoren": {
+    "esp32_hall": {
+      "plattform": "esp32_hall",
+      "werte": [ "Hall-Sensor" ],
+      "required": [],
+      "optional": [ "filters" ]
+    },
+    "wifi_signal": {
+      "plattform": "wifi_signal",
+      "werte": [ "Signalstärke" ],
+      "required": [],
+      "optional": [ "update_interval" ]
+    },
+    "uptime": {
+      "plattform": "uptime",
+      "werte": [ "Sekunden" ],
+      "required": [],
+      "optional": []
+    },
+    "internal_temperature": {
+      "plattform": "internal_temperature",
+      "werte": [ "CPU-Temperatur" ],
+      "required": [],
+      "optional": []
+    }
+  },
+  "Analoge Sensoren / ADC": {
+    "ADC": {
+      "plattform": "adc",
+      "werte": [ "Spannung (Analogpin)" ],
+      "required": [ "pin" ],
+      "optional": [ "attenuation", "filters" ]
+    },
+    "pulse_counter": {
+      "plattform": "pulse_counter",
+      "werte": [ "Impulse/Zählung" ],
+      "required": [ "pin" ],
+      "optional": [ "name", "internal_filter" ]
+    }
+  },
+  "Virtuelle / Software Sensoren": {
+    "template": {
+      "plattform": "template",
+      "werte": [ "Benutzerdefiniert" ],
+      "required": [ "name", "lambda" ],
+      "optional": [ "filters", "unit_of_measurement" ]
+    },
+    "integration": {
+      "plattform": "integration",
+      "werte": [ "Fläche (z.B. Energie aus Leistung)" ],
+      "required": [ "sensor" ],
+      "optional": [ "time_unit", "name" ]
+    }
+  }
+}

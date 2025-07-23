@@ -1,7 +1,7 @@
 ﻿Module externalServices
 
 
-    Public Sub CheckEnviroment()
+    Function CheckEnviroment() As Task
         Dim pythonInstalled As Boolean = CheckCommand("python --version")
         Dim pipInstalled As Boolean = CheckCommand("pip --version")
         Dim esphomeInstalled As Boolean = CheckCommand("esphome --version")
@@ -22,7 +22,8 @@
             Form1.TSSL_ESPHome.Text = "ESPHome wurde nicht gefunden, bitte Installieren siehe in Extras"
             Form1.TSSL_ESPHome.ForeColor = Color.Red
         End If
-    End Sub
+        Return Task.CompletedTask
+    End Function
 
 
 

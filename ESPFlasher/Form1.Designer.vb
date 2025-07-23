@@ -22,6 +22,7 @@ Partial Class Form1
     'Do not modify it using the code editor.
     <System.Diagnostics.DebuggerStepThrough()>
     Private Sub InitializeComponent()
+        components = New ComponentModel.Container()
         StatusStrip1 = New StatusStrip()
         TSSL_Python = New ToolStripStatusLabel()
         TSSL_ESPHome = New ToolStripStatusLabel()
@@ -70,6 +71,16 @@ Partial Class Form1
         Txt_ESPName = New TextBox()
         Label1 = New Label()
         TabPage2 = New TabPage()
+        GB_SPI = New GroupBox()
+        txt_spimiso = New TextBox()
+        Label23 = New Label()
+        lbl_spisavestate = New Label()
+        BTN_spiSettingsDelete = New Button()
+        BTN_spiSettingsSave = New Button()
+        txt_spimosi = New TextBox()
+        Label21 = New Label()
+        txt_spiclk = New TextBox()
+        Label22 = New Label()
         GB_I2C = New GroupBox()
         CB_i2cScan = New CheckBox()
         lbl_i2csavestate = New Label()
@@ -96,15 +107,19 @@ Partial Class Form1
         CBB_SensoreGroup = New ComboBox()
         Label13 = New Label()
         DGV_Sensors = New DataGridView()
+        CM_EditSensor = New ContextMenuStrip(components)
+        Edit = New ToolStripMenuItem()
         StatusStrip1.SuspendLayout()
         MenuStrip1.SuspendLayout()
         TabControl1.SuspendLayout()
         TabPage1.SuspendLayout()
         Webserver.SuspendLayout()
         TabPage2.SuspendLayout()
+        GB_SPI.SuspendLayout()
         GB_I2C.SuspendLayout()
         GB_OneWire.SuspendLayout()
         CType(DGV_Sensors, ComponentModel.ISupportInitialize).BeginInit()
+        CM_EditSensor.SuspendLayout()
         SuspendLayout()
         ' 
         ' StatusStrip1
@@ -524,6 +539,7 @@ Partial Class Form1
         ' 
         ' TabPage2
         ' 
+        TabPage2.Controls.Add(GB_SPI)
         TabPage2.Controls.Add(GB_I2C)
         TabPage2.Controls.Add(GB_OneWire)
         TabPage2.Controls.Add(BTN_DeleteSelectedSensor)
@@ -543,6 +559,100 @@ Partial Class Form1
         TabPage2.Text = "Sensoren"
         TabPage2.UseVisualStyleBackColor = True
         ' 
+        ' GB_SPI
+        ' 
+        GB_SPI.Controls.Add(txt_spimiso)
+        GB_SPI.Controls.Add(Label23)
+        GB_SPI.Controls.Add(lbl_spisavestate)
+        GB_SPI.Controls.Add(BTN_spiSettingsDelete)
+        GB_SPI.Controls.Add(BTN_spiSettingsSave)
+        GB_SPI.Controls.Add(txt_spimosi)
+        GB_SPI.Controls.Add(Label21)
+        GB_SPI.Controls.Add(txt_spiclk)
+        GB_SPI.Controls.Add(Label22)
+        GB_SPI.Location = New Point(345, 224)
+        GB_SPI.Name = "GB_SPI"
+        GB_SPI.Size = New Size(333, 148)
+        GB_SPI.TabIndex = 12
+        GB_SPI.TabStop = False
+        GB_SPI.Text = "SPI"
+        GB_SPI.Visible = False
+        ' 
+        ' txt_spimiso
+        ' 
+        txt_spimiso.Location = New Point(6, 83)
+        txt_spimiso.Name = "txt_spimiso"
+        txt_spimiso.Size = New Size(155, 23)
+        txt_spimiso.TabIndex = 8
+        ' 
+        ' Label23
+        ' 
+        Label23.AutoSize = True
+        Label23.Location = New Point(6, 65)
+        Label23.Name = "Label23"
+        Label23.Size = New Size(55, 15)
+        Label23.TabIndex = 7
+        Label23.Text = "miso PIN"
+        ' 
+        ' lbl_spisavestate
+        ' 
+        lbl_spisavestate.AutoSize = True
+        lbl_spisavestate.Location = New Point(6, 118)
+        lbl_spisavestate.Name = "lbl_spisavestate"
+        lbl_spisavestate.Size = New Size(0, 15)
+        lbl_spisavestate.TabIndex = 6
+        ' 
+        ' BTN_spiSettingsDelete
+        ' 
+        BTN_spiSettingsDelete.ForeColor = Color.Red
+        BTN_spiSettingsDelete.Location = New Point(248, 110)
+        BTN_spiSettingsDelete.Name = "BTN_spiSettingsDelete"
+        BTN_spiSettingsDelete.Size = New Size(75, 23)
+        BTN_spiSettingsDelete.TabIndex = 5
+        BTN_spiSettingsDelete.Text = "Löschen"
+        BTN_spiSettingsDelete.UseVisualStyleBackColor = True
+        ' 
+        ' BTN_spiSettingsSave
+        ' 
+        BTN_spiSettingsSave.Location = New Point(167, 110)
+        BTN_spiSettingsSave.Name = "BTN_spiSettingsSave"
+        BTN_spiSettingsSave.Size = New Size(75, 23)
+        BTN_spiSettingsSave.TabIndex = 4
+        BTN_spiSettingsSave.Text = "Speichern"
+        BTN_spiSettingsSave.UseVisualStyleBackColor = True
+        ' 
+        ' txt_spimosi
+        ' 
+        txt_spimosi.Location = New Point(167, 39)
+        txt_spimosi.Name = "txt_spimosi"
+        txt_spimosi.Size = New Size(155, 23)
+        txt_spimosi.TabIndex = 3
+        ' 
+        ' Label21
+        ' 
+        Label21.AutoSize = True
+        Label21.Location = New Point(167, 18)
+        Label21.Name = "Label21"
+        Label21.Size = New Size(55, 15)
+        Label21.TabIndex = 2
+        Label21.Text = "mosi PIN"
+        ' 
+        ' txt_spiclk
+        ' 
+        txt_spiclk.Location = New Point(6, 39)
+        txt_spiclk.Name = "txt_spiclk"
+        txt_spiclk.Size = New Size(155, 23)
+        txt_spiclk.TabIndex = 1
+        ' 
+        ' Label22
+        ' 
+        Label22.AutoSize = True
+        Label22.Location = New Point(6, 21)
+        Label22.Name = "Label22"
+        Label22.Size = New Size(44, 15)
+        Label22.TabIndex = 0
+        Label22.Text = "clk PIN"
+        ' 
         ' GB_I2C
         ' 
         GB_I2C.Controls.Add(CB_i2cScan)
@@ -553,7 +663,7 @@ Partial Class Form1
         GB_I2C.Controls.Add(Label19)
         GB_I2C.Controls.Add(txt_i2csda)
         GB_I2C.Controls.Add(Label20)
-        GB_I2C.Location = New Point(345, 6)
+        GB_I2C.Location = New Point(345, 115)
         GB_I2C.Name = "GB_I2C"
         GB_I2C.Size = New Size(333, 103)
         GB_I2C.TabIndex = 11
@@ -574,7 +684,7 @@ Partial Class Form1
         ' lbl_i2csavestate
         ' 
         lbl_i2csavestate.AutoSize = True
-        lbl_i2csavestate.Location = New Point(72, 76)
+        lbl_i2csavestate.Location = New Point(72, 74)
         lbl_i2csavestate.Name = "lbl_i2csavestate"
         lbl_i2csavestate.Size = New Size(0, 15)
         lbl_i2csavestate.TabIndex = 6
@@ -780,10 +890,23 @@ Partial Class Form1
         ' 
         DGV_Sensors.BackgroundColor = SystemColors.ControlLight
         DGV_Sensors.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize
+        DGV_Sensors.ContextMenuStrip = CM_EditSensor
         DGV_Sensors.Location = New Point(6, 527)
         DGV_Sensors.Name = "DGV_Sensors"
         DGV_Sensors.Size = New Size(675, 170)
         DGV_Sensors.TabIndex = 0
+        ' 
+        ' CM_EditSensor
+        ' 
+        CM_EditSensor.Items.AddRange(New ToolStripItem() {Edit})
+        CM_EditSensor.Name = "CM_EditSensor"
+        CM_EditSensor.Size = New Size(181, 48)
+        ' 
+        ' Edit
+        ' 
+        Edit.Name = "Edit"
+        Edit.Size = New Size(180, 22)
+        Edit.Text = "Bearbeiten"
         ' 
         ' Form1
         ' 
@@ -808,11 +931,14 @@ Partial Class Form1
         Webserver.PerformLayout()
         TabPage2.ResumeLayout(False)
         TabPage2.PerformLayout()
+        GB_SPI.ResumeLayout(False)
+        GB_SPI.PerformLayout()
         GB_I2C.ResumeLayout(False)
         GB_I2C.PerformLayout()
         GB_OneWire.ResumeLayout(False)
         GB_OneWire.PerformLayout()
         CType(DGV_Sensors, ComponentModel.ISupportInitialize).EndInit()
+        CM_EditSensor.ResumeLayout(False)
         ResumeLayout(False)
         PerformLayout()
     End Sub
@@ -891,5 +1017,17 @@ Partial Class Form1
     Friend WithEvents txt_i2csda As TextBox
     Friend WithEvents Label20 As Label
     Friend WithEvents CB_i2cScan As CheckBox
+    Friend WithEvents GB_SPI As GroupBox
+    Friend WithEvents txt_spimiso As TextBox
+    Friend WithEvents Label23 As Label
+    Friend WithEvents lbl_spisavestate As Label
+    Friend WithEvents BTN_spiSettingsDelete As Button
+    Friend WithEvents BTN_spiSettingsSave As Button
+    Friend WithEvents txt_spimosi As TextBox
+    Friend WithEvents Label21 As Label
+    Friend WithEvents txt_spiclk As TextBox
+    Friend WithEvents Label22 As Label
+    Friend WithEvents CM_EditSensor As ContextMenuStrip
+    Friend WithEvents Edit As ToolStripMenuItem
 
 End Class

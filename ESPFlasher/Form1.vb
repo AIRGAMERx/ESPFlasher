@@ -3,7 +3,12 @@ Imports System.Runtime.InteropServices
 Imports Newtonsoft.Json.Linq
 
 Public Class Form1
+    ' Allgemeine Einstellungen
+    Dim GBLocation As New Point(345, 6)
+
+    'COM Port
     Public ComPort As String = ""
+
     'OneWire
     Public OneWireID As String = ""
     Public OneWirePIN As String = ""
@@ -13,13 +18,69 @@ Public Class Form1
     Public i2cScl As String = ""
     Public i2cScan As Boolean = False
     Public i2c As Boolean = False
-    Private Sub Form1_Load(sender As Object, e As EventArgs) Handles MyBase.Load
-        CheckEnviroment()
-        ListProjects()
-        LoadSensorData()
-        SetDGVSensors()
+
+    'spi
+    Public spiclk As String = ""
+    Public spimosi As String = ""
+    Public spimiso As String = ""
+    Public spi As Boolean = False
+
+    Async Sub Form1_Load(sender As Object, e As EventArgs) Handles MyBase.Load
+        Await Init()
+
 
     End Sub
+
+
+    Async Function Init() As Task
+        ' Schritt 1: Wartefenster vorbereiten
+        Dim waitForm As New Form With {
+        .Text = "Initialisierung",
+        .Size = New Size(350, 100),
+        .FormBorderStyle = FormBorderStyle.FixedDialog,
+        .StartPosition = FormStartPosition.WindowsDefaultLocation,
+        .ControlBox = False,
+        .ShowInTaskbar = False,
+        .TopMost = True
+    }
+
+        Dim lbl As New Label With {
+        .Text = "Bitte warten, das Programm wird initialisiert...",
+        .AutoSize = False,
+        .TextAlign = ContentAlignment.MiddleCenter,
+        .Dock = DockStyle.Fill,
+        .Font = New Font("Segoe UI", 11, FontStyle.Regular)
+    }
+
+        waitForm.Controls.Add(lbl)
+
+        ' Fenster in einem eigenen Thread anzeigen
+        Dim showTask As Task = Task.Run(Sub()
+                                            waitForm.ShowDialog()
+                                        End Sub)
+
+        ' Warten auf Initialisierung
+        Await CheckEnviroment()
+        Await ListProjects()
+        Await LoadSensorData()
+        Await SetDGVSensors()
+
+        ' Fenster schließen (UI-Thread erforderlich)
+        If waitForm.InvokeRequired Then
+            waitForm.Invoke(Sub() waitForm.Close())
+        Else
+            waitForm.Close()
+        End If
+
+        ' Warten bis das Fenster endgültig geschlossen ist
+        Await showTask
+    End Function
+
+
+
+
+
+
 
     Private Sub DownloadPython_Click(sender As Object, e As EventArgs) Handles DownloadPython.Click
         Process.Start(New ProcessStartInfo With {
@@ -209,7 +270,7 @@ Public Class Form1
 
 
 #Region "LoadProjects"
-    Private Sub ListProjects()
+    Function ListProjects() As Task
         Dim buildPath As String = Path.Combine(Application.StartupPath, "build")
 
         OpenProjects.DropDownItems.Clear()
@@ -224,10 +285,12 @@ Public Class Form1
 
                     Dim item As New ToolStripMenuItem(projektName)
 
-                    AddHandler item.Click, Sub(sender, e)
+                    AddHandler item.Click, Async Sub(sender, e)
 
                                                Try
-                                                   LoadYaml(yamlPath)
+                                                   Await LoadYaml(yamlPath)
+                                                   Await LoadDGVFromJson(DGV_Sensors)
+                                                   Await LoadGlobalBusFromJson()
                                                Catch ex As Exception
                                                    MsgBox("Projekt konnte nicht geladen werden")
                                                End Try
@@ -243,9 +306,9 @@ Public Class Form1
         If OpenProjects.DropDownItems.Count = 0 Then
             OpenProjects.DropDownItems.Add("⚠️ Keine Projekte gefunden").Enabled = False
         End If
+        Return Task.CompletedTask
 
-
-    End Sub
+    End Function
 
     Private Sub TestESPConnection_Click(sender As Object, e As EventArgs) Handles TestESPConnection.Click
         Dim espPort As String = FindeESPPort()
@@ -300,8 +363,9 @@ Public Class Form1
 
 
 
-        If CBB_SensorType.SelectedItem?.ToString().Trim().ToUpper() = "DS18B20" Then
+        If CBB_SensoreGroup.SelectedItem?.ToString().Trim().ToLowerInvariant() = "digitale gpio sensoren" Then
             GB_OneWire.Visible = True
+            GB_OneWire.Location = GBLocation
 
             For Each c As Control In pnl_SensorConfig.Controls
                 If TypeOf c Is TextBox AndAlso c.Name.ToLower().Contains("pin") Then
@@ -316,9 +380,17 @@ Public Class Form1
 
         If CBB_SensoreGroup.SelectedItem?.ToString().Trim().ToLowerInvariant() = "i2c sensoren" Then
             GB_I2C.Visible = True
+            GB_I2C.Location = GBLocation
 
         Else
             GB_I2C.Visible = False
+        End If
+
+        If CBB_SensoreGroup.SelectedItem?.ToString().Trim().ToLowerInvariant() = "spi sensoren" Then
+            GB_SPI.Visible = True
+            GB_SPI.Location = GBLocation
+        Else
+            GB_SPI.Visible = False
         End If
 
 
@@ -327,7 +399,7 @@ Public Class Form1
 
     End Sub
 
-    Private Sub SetDGVSensors()
+    Async Function SetDGVSensors() As Task
         With DGV_Sensors.Columns
             .Add("Gruppe", "Gruppe")
             .Add("Typ", "Typ")
@@ -335,7 +407,7 @@ Public Class Form1
             .Add("Pins", "Pins")
             .Add("Parameter", "Parameter")
         End With
-    End Sub
+    End Function
 
     Private Sub BTN_AddSensor_Click(sender As Object, e As EventArgs) Handles BTN_AddSensor.Click
         Dim group As String = CBB_SensoreGroup.SelectedItem?.ToString()
@@ -405,10 +477,86 @@ Public Class Form1
         lbl_i2csavestate.ForeColor = Color.Red
     End Sub
 
+    Private Sub BTN_spiSettingsSave_Click(sender As Object, e As EventArgs) Handles BTN_spiSettingsSave.Click
+        If txt_spiclk.Text.Length > 0 AndAlso txt_spimosi.Text.Length > 0 AndAlso txt_spimiso.Text.Length > 0 Then
+            spiclk = txt_spiclk.Text
+            spimosi = txt_spimosi.Text
+            spimiso = txt_spimiso.Text
+            spi = True
+            lbl_spisavestate.Text = "Gespeichert"
+            lbl_spisavestate.ForeColor = Color.Green
+        Else
+            MsgBox("Bitte clk, mosi und miso ausfüllen")
+        End If
+
+
+    End Sub
+
+    Private Sub BTN_spiSettingsDelete_Click(sender As Object, e As EventArgs) Handles BTN_spiSettingsDelete.Click
+        spiclk = ""
+        spimosi = ""
+        spimiso = ""
+        spi = False
+        lbl_spisavestate.Text = "Nicht Gespeichert"
+        lbl_spisavestate.ForeColor = Color.Red
+    End Sub
+
+    Private Sub Edit_Click(sender As Object, e As EventArgs) Handles Edit.Click
+        Dim dgv As DataGridView = DGV_Sensors
+
+        Try
+            Dim selectedRow As DataGridViewRow = dgv.CurrentRow
+            If selectedRow IsNot Nothing Then
+                Dim group = dgv.CurrentRow().Cells(0).Value.ToString
+                Dim type = dgv.CurrentRow().Cells(1).Value.ToString
+                Dim platform = dgv.CurrentRow().Cells(2).Value.ToString
+                Dim param = dgv.CurrentRow().Cells(3).Value.ToString
+
+                CBB_SensoreGroup.SelectedItem = group
+                CBB_SensorType.SelectedItem = type
+
+                Dim dict As New Dictionary(Of String, String)
+                Dim parts() = param.Split(","c)
+                For Each part In parts
+
+                    Dim keyVal = part.Trim().Split("="c, 2)
+                    If keyVal.Length = 2 Then dict(keyVal(0).Trim) = keyVal(1).Trim
+                Next
+                For Each ctrl As Control In pnl_SensorConfig.Controls
+                    If TypeOf ctrl Is TextBox Then
+                        Dim tb As TextBox = CType(ctrl, TextBox)
+                        Dim tb_part As String() = tb.Name.Split("_"c, 2)
+
+                        If tb_part.Length = 2 Then
+                            For Each entry As KeyValuePair(Of String, String) In dict
+                                ' Debug-Ausgabe:
+
+
+                                If tb_part(1) = entry.Key Then
+                                    tb.Text = entry.Value
+                                    Exit For
+                                End If
+                            Next
+                        End If
+                    End If
+                Next
+
+
+
+                For Each entry As KeyValuePair(Of String, String) In dict
+
+                Next
+
+            End If
+        Catch ex As Exception
+            MsgBox(ex.Message & ex.StackTrace)
+        End Try
 
 
 
 
+
+    End Sub
 
 #End Region
 

@@ -3,10 +3,12 @@ Imports System.Text
 Imports System.Windows.Forms
 
 Module yaml
+    Dim rawName As String = Form1.Txt_ESPName.Text.Trim()
+    Dim name As String = rawName.ToLower().Replace(" ", "-")
+    Public yamlPath As String = $"build\{name}\{name}.yaml"
     Public Sub generateYaml(createbin As Boolean)
-        Dim rawName As String = Form1.Txt_ESPName.Text.Trim()
-        Dim name As String = rawName.ToLower().Replace(" ", "-")
-        Dim yamlPath As String = $"build\{name}\{name}.yaml"
+
+
         Dim writtenPlatforms As New HashSet(Of String)(StringComparer.OrdinalIgnoreCase)
 
 
@@ -88,21 +90,129 @@ Module yaml
         ' Ordner anlegen und Datei schreiben
         Directory.CreateDirectory($"build\{name}")
         File.WriteAllText(yamlPath, sb.ToString(), Encoding.UTF8)
+        GenerateJsonFromDGV(Form1.DGV_Sensors)
+        GenerateJsonFromGlobalBus()
 
         ' Entweder kompilieren oder öffnen
         If createbin Then
             Form1.generateBin(yamlPath)
         Else
-            Process.Start("notepad.exe", yamlPath)
+            EditYaml.Show()
+
         End If
     End Sub
+    Public Sub GenerateJsonFromDGV(dgv As DataGridView)
+        Dim entries As New List(Of DGVEntrie)()
+        For i = 0 To dgv.Rows.Count - 1
+            If Not dgv.Rows(i).IsNewRow Then
+
+
+                Dim newEntry As New DGVEntrie() With {
+                .group = If(dgv.Rows(i).Cells(0).Value?.ToString(), ""),
+                .type = If(dgv.Rows(i).Cells(1).Value?.ToString(), ""),
+                .platform = If(dgv.Rows(i).Cells(2).Value?.ToString(), ""),
+                .pins = If(dgv.Rows(i).Cells(3).Value?.ToString(), ""),
+                .parameters = If(dgv.Rows(i).Cells(4).Value?.ToString(), "")
+            }
+                entries.Add(newEntry)
+            End If
+
+
+        Next
+
+
+        Dim json As String = Newtonsoft.Json.JsonConvert.SerializeObject(entries, Newtonsoft.Json.Formatting.Indented)
+        Dim jsonPath As String = $"build\{Form1.Txt_ESPName.Text.Trim().ToLower().Replace(" ", "-")}\sensors.json"
+        Directory.CreateDirectory(Path.GetDirectoryName(jsonPath))
+        File.WriteAllText(jsonPath, json, Encoding.UTF8)
+
+    End Sub
+
+    Public Sub GenerateJsonFromGlobalBus()
+        Dim globalBus As New GlobalBus() With {
+            .gpiopin = Form1.OneWirePIN,
+            .gpioid = Form1.OneWireID,
+            .onewire = Form1.OneWire,
+            .i2cSda = Form1.i2cSda,
+            .i2cScl = Form1.i2cScl,
+            .i2cScan = Form1.i2cScan,
+            .i2c = Form1.i2c,
+            .spi = Form1.spi,
+            .spiclk = Form1.spiclk,
+            .spimosi = Form1.spimosi,
+            .spimiso = Form1.spimiso
+        }
+        Dim json As String = Newtonsoft.Json.JsonConvert.SerializeObject(globalBus, Newtonsoft.Json.Formatting.Indented)
+        Dim jsonPath As String = $"build\{Form1.Txt_ESPName.Text.Trim().ToLower().Replace(" ", "-")}\globalbus.json"
+        Directory.CreateDirectory(Path.GetDirectoryName(jsonPath))
+        File.WriteAllText(jsonPath, json, Encoding.UTF8)
+    End Sub
+    Function LoadGlobalBusFromJson() As Task
+        Dim jsonPath As String = $"build\{Form1.Txt_ESPName.Text.Trim().ToLower().Replace(" ", "-")}\globalbus.json"
+        If Not File.Exists(jsonPath) Then
+            MsgBox("Globale Bus Daten nicht gefunden")
+            MsgBox(jsonPath.ToString)
+            Return Task.CompletedTask
+            Exit Function
+        End If
+        Dim json As String = File.ReadAllText(jsonPath, Encoding.UTF8)
+        Dim globalBus As GlobalBus = Newtonsoft.Json.JsonConvert.DeserializeObject(Of GlobalBus)(json)
+        Form1.OneWirePIN = globalBus.gpiopin
+        Form1.OneWireID = globalBus.gpioid
+        Form1.OneWire = globalBus.onewire
+        Form1.i2cSda = globalBus.i2cSda
+        Form1.i2cScl = globalBus.i2cScl
+        Form1.i2cScan = globalBus.i2cScan
+        Form1.i2c = globalBus.i2c
+        Form1.spi = globalBus.spi
+        Form1.spiclk = globalBus.spiclk
+        Form1.spimosi = globalBus.spimosi
+        Form1.spimiso = globalBus.spimiso
+
+        Form1.Txt_OneWireBusID.Text = Form1.OneWireID
+        Form1.Txt_OneWireGPIOPin.Text = Form1.OneWirePIN
+        Form1.txt_i2csda.Text = Form1.i2cSda
+        Form1.txt_i2cscl.Text = Form1.i2cScl
+        Form1.CB_i2cScan.Checked = Form1.i2cScan
+        Form1.txt_spiclk.Text = Form1.spiclk
+        Form1.txt_spimosi.Text = Form1.spimosi
+        Form1.txt_spimiso.Text = Form1.spimiso
 
 
 
-    Public Sub LoadYaml(yamlPath As String)
+
+
+        Return Task.CompletedTask
+    End Function
+
+
+
+    Function LoadDGVFromJson(dgv As DataGridView) As Task
+
+        Dim jsonPath As String = $"build\{Form1.Txt_ESPName.Text.Trim().ToLower().Replace(" ", "-")}\sensors.json"
+        If Not File.Exists(jsonPath) Then
+            Return Task.CompletedTask
+            Exit Function
+        End If
+        Dim json As String = File.ReadAllText(jsonPath, Encoding.UTF8)
+        Dim entries As List(Of DGVEntrie) = Newtonsoft.Json.JsonConvert.DeserializeObject(Of List(Of DGVEntrie))(json)
+        dgv.Rows.Clear()
+        For Each entry In entries
+            dgv.Rows.Add(entry.group, entry.type, entry.platform, entry.pins, entry.parameters)
+        Next
+        Return Task.CompletedTask
+    End Function
+
+
+
+
+
+
+    Function LoadYaml(yamlPath As String) As Task
         If Not File.Exists(yamlPath) Then
             MessageBox.Show("YAML-Datei wurde nicht gefunden!")
-            Exit Sub
+            Return Task.CompletedTask
+            Exit Function
         End If
 
         Dim lines = File.ReadAllLines(yamlPath)
@@ -206,7 +316,8 @@ Module yaml
         If chipTyp <> "" AndAlso Form1.CBB_Chipset.Items.Contains(chipTyp) Then
             Form1.CBB_Chipset.SelectedItem = chipTyp
         End If
-    End Sub
+        Return Task.CompletedTask
+    End Function
 
 
 
@@ -218,10 +329,35 @@ Module yaml
             Return ""
         End If
     End Function
-
-
-
-
-
-
 End Module
+
+Public Class DGVEntrie
+    Public Property group As String
+    Public Property type As String
+    Public Property platform As String
+    Public Property pins As String
+    Public Property parameters As String
+
+End Class
+
+Public Class OneWireBus
+    Public Property pin As String
+    Public Property id As String
+
+End Class
+
+
+Public Class GlobalBus
+    Public Property gpiopin As String
+    Public Property gpioid As String
+    Public Property onewire As Boolean
+    Public Property i2cSda As String
+    Public Property i2cScl As String
+    Public Property i2cScan As Boolean
+    Public Property i2c As Boolean
+    Public Property spi As Boolean
+    Public Property spiclk As String
+    Public Property spimosi As String
+    Public Property spimiso As String
+
+End Class

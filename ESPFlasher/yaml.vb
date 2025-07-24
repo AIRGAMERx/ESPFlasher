@@ -1,6 +1,7 @@
 ﻿Imports System.IO
 Imports System.Text
 Imports System.Windows.Forms
+Imports System.Windows.Forms.VisualStyles.VisualStyleElement
 
 Module yaml
     Dim rawName As String = Form1.Txt_ESPName.Text.Trim()
@@ -83,6 +84,44 @@ Module yaml
             End If
             sb.AppendLine()
         End If
+        If Form1.OneWire Then
+            sb.AppendLine("one_wire:")
+            sb.AppendLine("  - platform: gpio")
+            If Not String.IsNullOrWhiteSpace(Form1.OneWirePIN) Then sb.AppendLine($"    pin: GPIO{Form1.OneWirePIN}")
+            If Not String.IsNullOrWhiteSpace(Form1.OneWireID) Then sb.AppendLine($"    id: {Form1.OneWireID}")
+            sb.AppendLine()
+        End If
+
+        ' I2C
+        If Form1.i2c Then
+            Dim scan As String = If(Form1.i2cScan, "true", "false")
+            sb.AppendLine("i2c:")
+            sb.AppendLine("  - id: i2c_bus")
+            If Not String.IsNullOrWhiteSpace(Form1.i2cSda) Then sb.AppendLine($"    sda: {Form1.i2cSda}")
+            If Not String.IsNullOrWhiteSpace(Form1.i2cScl) Then sb.AppendLine($"    scl: {Form1.i2cScl}")
+            sb.AppendLine($"    scan: {scan}")
+            sb.AppendLine()
+        End If
+
+        ' SPI
+        If Form1.spi Then
+            sb.AppendLine("spi:")
+            If Not String.IsNullOrWhiteSpace(Form1.spiclk) Then sb.AppendLine($"  clk_pin: {Form1.spiclk}")
+            If Not String.IsNullOrWhiteSpace(Form1.spimosi) Then sb.AppendLine($"  mosi_pin: {Form1.spimosi}")
+            If Not String.IsNullOrWhiteSpace(Form1.spimiso) Then sb.AppendLine($"  miso_pin: {Form1.spimiso}")
+            sb.AppendLine()
+        End If
+
+        'UART
+        If Form1.uart Then
+            sb.AppendLine("uart:")
+            If Not String.IsNullOrWhiteSpace(Form1.uartTx) Then sb.AppendLine($"  tx_pin: {Form1.uartTx}")
+            If Not String.IsNullOrWhiteSpace(Form1.uartRx) Then sb.AppendLine($"  rx_pin: {Form1.uartRx}")
+            If Not String.IsNullOrWhiteSpace(Form1.uartBaudrate) Then sb.AppendLine($"  baud_rate: {Form1.uartBaudrate}")
+            sb.AppendLine()
+
+        End If
+
 
         ExportSensorsToYaml(sb, Form1.DGV_Sensors)
 
@@ -112,7 +151,8 @@ Module yaml
                 .type = If(dgv.Rows(i).Cells(1).Value?.ToString(), ""),
                 .platform = If(dgv.Rows(i).Cells(2).Value?.ToString(), ""),
                 .pins = If(dgv.Rows(i).Cells(3).Value?.ToString(), ""),
-                .parameters = If(dgv.Rows(i).Cells(4).Value?.ToString(), "")
+                .parameters = If(dgv.Rows(i).Cells(4).Value?.ToString(), ""),
+                .filter = If(dgv.Rows(i).Cells(5).Value?.ToString(), "")
             }
                 entries.Add(newEntry)
             End If
@@ -168,6 +208,10 @@ Module yaml
         Form1.spiclk = globalBus.spiclk
         Form1.spimosi = globalBus.spimosi
         Form1.spimiso = globalBus.spimiso
+        Form1.uart = globalBus.uart
+        Form1.uartRx = globalBus.uartrx
+        Form1.uartTx = globalBus.uarttx
+        Form1.uartBaudrate = globalBus.uartbaudrate
 
         Form1.Txt_OneWireBusID.Text = Form1.OneWireID
         Form1.Txt_OneWireGPIOPin.Text = Form1.OneWirePIN
@@ -177,6 +221,10 @@ Module yaml
         Form1.txt_spiclk.Text = Form1.spiclk
         Form1.txt_spimosi.Text = Form1.spimosi
         Form1.txt_spimiso.Text = Form1.spimiso
+        Form1.txt_UartRx.Text = Form1.uartRx
+        Form1.txt_UartTx.Text = Form1.uartTx
+
+
 
 
 
@@ -198,7 +246,7 @@ Module yaml
         Dim entries As List(Of DGVEntrie) = Newtonsoft.Json.JsonConvert.DeserializeObject(Of List(Of DGVEntrie))(json)
         dgv.Rows.Clear()
         For Each entry In entries
-            dgv.Rows.Add(entry.group, entry.type, entry.platform, entry.pins, entry.parameters)
+            dgv.Rows.Add(entry.group, entry.type, entry.platform, entry.pins, entry.parameters, entry.filter)
         Next
         Return Task.CompletedTask
     End Function
@@ -214,6 +262,13 @@ Module yaml
             Return Task.CompletedTask
             Exit Function
         End If
+
+        For Each ctrl As Control In Form1.TabControl1.Controls
+            If TypeOf ctrl Is System.Windows.Forms.TextBox Then
+                ctrl.Text = String.Empty
+            End If
+
+        Next
 
         Dim lines = File.ReadAllLines(yamlPath)
 
@@ -337,6 +392,7 @@ Public Class DGVEntrie
     Public Property platform As String
     Public Property pins As String
     Public Property parameters As String
+    Public Property filter As String
 
 End Class
 
@@ -359,5 +415,9 @@ Public Class GlobalBus
     Public Property spiclk As String
     Public Property spimosi As String
     Public Property spimiso As String
+    Public Property uartbaudrate As String
+    Public Property uartrx As String
+    Public Property uarttx As String
+    Public Property uart As Boolean
 
 End Class

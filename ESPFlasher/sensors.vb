@@ -7,7 +7,7 @@ Imports Newtonsoft.Json.Linq
 
 Module sensors
     Public sensorData As JObject
-
+    Dim GBLocation As New Point(480, 17)
 
     Function LoadSensorData() As Task
         Dim filePath = Path.Combine(Application.StartupPath, "sensors.json")
@@ -67,13 +67,90 @@ Module sensors
             Next
         End If
 
-        ' Info Felder
-        If sensorInfo("info") IsNot Nothing Then
-            For Each o In sensorInfo("info")
-                AddInfoField(o.ToString, targetPanel, yOffset)
+        ' Verschachtelte Felder (nested_fields)
+        If sensorInfo("nested_fields") IsNot Nothing Then
+            Dim nestedFields As JObject = CType(sensorInfo("nested_fields"), JObject)
+
+            For Each section In nestedFields
+                Dim prefix As String = section.Key
+                Dim fieldList As JArray = CType(section.Value, JArray)
+
+                For Each field In fieldList
+                    Dim fullFieldName As String = $"{prefix}_{field.ToString()}"
+                    Dim fieldConfig As JObject = Nothing
+
+                    If uiFields IsNot Nothing AndAlso uiFields(fullFieldName) IsNot Nothing Then
+                        fieldConfig = CType(uiFields(fullFieldName), JObject)
+                    End If
+
+                    AddSensorField(fullFieldName, False, targetPanel, yOffset, fieldConfig)
+                Next
             Next
         End If
+
+        ' Info-Felder
+        If sensorInfo("info") IsNot Nothing Then
+            For Each o In sensorInfo("info")
+                AddInfoField(o.ToString(), targetPanel, yOffset)
+            Next
+        End If
+
+
+
+        If sensorInfo("bus") IsNot Nothing Then
+
+            For Each o In sensorInfo("bus")
+
+                Dim busValue As String = o.ToString().ToLower()
+
+
+                Select Case busValue
+                    Case "onewire"
+                        Form1.GB_OneWire.Visible = True
+                        Form1.GB_I2C.Visible = False
+                        Form1.GB_SPI.Visible = False
+                        Form1.GB_Uart.Visible = False
+                        Form1.GB_OneWire.Location = GBLocation
+
+                    Case "i2c"
+                        Form1.GB_OneWire.Visible = False
+                        Form1.GB_I2C.Visible = True
+                        Form1.GB_SPI.Visible = False
+                        Form1.GB_Uart.Visible = False
+                        Form1.GB_I2C.Location = GBLocation
+
+                    Case "spi"
+                        Form1.GB_OneWire.Visible = False
+                        Form1.GB_I2C.Visible = False
+                        Form1.GB_SPI.Visible = True
+                        Form1.GB_Uart.Visible = False
+                        Form1.GB_SPI.Location = GBLocation
+
+                    Case "uart"
+                        Form1.GB_OneWire.Visible = False
+                        Form1.GB_I2C.Visible = False
+                        Form1.GB_SPI.Visible = False
+                        Form1.GB_Uart.Visible = True
+                        Form1.GB_Uart.Location = GBLocation
+
+                    Case "na"
+                        Form1.GB_OneWire.Visible = False
+                        Form1.GB_I2C.Visible = False
+                        Form1.GB_SPI.Visible = False
+                        Form1.GB_Uart.Visible = False
+                End Select
+
+
+            Next
+        Else
+            Form1.GB_OneWire.Visible = False
+            Form1.GB_I2C.Visible = False
+            Form1.GB_SPI.Visible = False
+
+
+        End If
     End Sub
+
 
 
     Public Sub AddSensorField(fieldName As String, isRequired As Boolean, targetPanel As Panel, ByRef yOffset As Integer, Optional fieldConfig As JObject = Nothing)
@@ -95,7 +172,7 @@ Module sensors
             Case "textbox"
                 control = New TextBox With {
                 .Name = "TXT_" & fieldName,
-                .Location = New Point(150, yOffset),
+                .Location = New Point(230, yOffset),
                 .Width = 150
             }
                 If fieldConfig?("multiline")?.ToObject(Of Boolean) = True Then
@@ -106,7 +183,7 @@ Module sensors
             Case "combobox"
                 control = New ComboBox With {
                 .Name = "CMB_" & fieldName,
-                .Location = New Point(150, yOffset),
+                .Location = New Point(230, yOffset),
                 .Width = 150,
                 .DropDownStyle = ComboBoxStyle.DropDownList
             }
@@ -118,13 +195,14 @@ Module sensors
             Case "numericupdown"
                 control = New NumericUpDown With {
                 .Name = "NUM_" & fieldName,
-                .Location = New Point(150, yOffset),
-                .Width = 100
+                .Location = New Point(230, yOffset),
+                .Width = 100,
+                .DecimalPlaces = 1
             }
                 With CType(control, NumericUpDown)
                     .Minimum = If(fieldConfig?("min") IsNot Nothing, fieldConfig("min").ToObject(Of Decimal), 0)
                     .Maximum = If(fieldConfig?("max") IsNot Nothing, fieldConfig("max").ToObject(Of Decimal), 100)
-                    .Increment = If(fieldConfig?("step") IsNot Nothing, fieldConfig("step").ToObject(Of Decimal), 1)
+                    .Increment = If(fieldConfig?("Step") IsNot Nothing, fieldConfig("Step").ToObject(Of Decimal), 1)
                 End With
 
             Case Else
@@ -154,7 +232,25 @@ Module sensors
         panel.Controls.Add(lbl)
     End Sub
 
+    Private Function IsPinInUse(pin As String, dgv As DataGridView) As Boolean
+        For Each row As DataGridViewRow In dgv.Rows
+            If row.IsNewRow Then Continue For
+            Dim paramString As String = row.Cells("Parameter").Value?.ToString()
+            If String.IsNullOrWhiteSpace(paramString) Then Continue For
+
+            If paramString.Contains($"pin={pin}") OrElse
+           paramString.Contains($"trigger_pin={pin}") OrElse
+           paramString.Contains($"echo_pin={pin}") OrElse
+           paramString.Contains($"cs_pin={pin}") Then
+                Return True
+            End If
+        Next
+        Return False
+    End Function
     Public Sub AddSensorToGrid(sensorGroup As String, sensorType As String, sensorInfo As JObject, panelSensor As Panel, dgv As DataGridView)
+
+
+
 
         ' 1. Pflichtfelder prüfen
         If sensorInfo("required") IsNot Nothing Then
@@ -181,6 +277,23 @@ Module sensors
                 If isEmpty Then
                     MessageBox.Show($"Das Pflichtfeld '{fieldName}' muss ausgefüllt werden.", "Fehler", MessageBoxButtons.OK, MessageBoxIcon.Warning)
                     Return
+                End If
+                Dim pinFields = New HashSet(Of String) From {"pin", "trigger_pin", "echo_pin", "cs_pin"}
+                If pinFields.Contains(fieldName.ToLower()) Then
+                    Dim pinValue As String = ""
+
+                    If TypeOf ctrl Is TextBox Then
+                        pinValue = CType(ctrl, TextBox).Text.Trim()
+                    ElseIf TypeOf ctrl Is ComboBox Then
+                        pinValue = CType(ctrl, ComboBox).Text.Trim()
+                    End If
+                    MsgBox(Form1.clickedRow.ToString)
+                    If Form1.clickedRow = -1 Then
+                        If Not String.IsNullOrEmpty(pinValue) AndAlso IsPinInUse(pinValue, dgv) Then
+                            MessageBox.Show($"Der Pin '{pinValue}' wird bereits von einem anderen Sensor verwendet.", "Pin-Konflikt", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+                            Return
+                        End If
+                    End If
                 End If
             Next
         End If
@@ -223,8 +336,26 @@ Module sensors
         End If
 
         ' 4. Zeile zum DataGridView hinzufügen
-        dgv.Rows.Add(sensorGroup, sensorType, platform, "", String.Join(", ", parameter))
+        If Form1.clickedRow > -1 Then
+            Try
 
+                Dim row As DataGridViewRow = dgv.Rows(Form1.clickedRow)
+                row.Cells(0).Value = sensorGroup
+                row.Cells(1).Value = sensorType
+                row.Cells(2).Value = platform
+                row.Cells(3).Value = ""
+                row.Cells(4).Value = String.Join(",", parameter)
+                MsgBox("Sensor wurde gespeichert")
+
+            Catch ex As Exception
+
+            End Try
+        Else
+            dgv.Rows.Add(sensorGroup, sensorType, platform, "", String.Join(", ", parameter))
+
+        End If
+
+        Form1.clickedRow = -1
     End Sub
 
 
@@ -284,263 +415,30 @@ Module sensors
         Return grouped.Values.ToList()
     End Function
     Public Sub ExportSensorsToYaml(sb As StringBuilder, dgv As DataGridView)
-        Dim alreadysensors As Boolean = False
+        If dgv.Rows.Count = 0 Then Exit Sub
 
-        If Form1.OneWire = True Then
-            sb.AppendLine("one_wire:")
-            sb.AppendLine($"  - platform: gpio")
-            sb.AppendLine($"    pin: GPIO{Form1.OneWirePIN}")
-            sb.AppendLine($"    id: {Form1.OneWireID}")
-            sb.AppendLine()
-            sb.AppendLine()
-        End If
+        Dim sensorsExist As Boolean = False
 
-        If Form1.i2c = True Then
-            Dim scan As String = "false"
-            If Form1.i2cScan = True Then scan = "true" Else scan = "false"
+        For Each row As DataGridViewRow In dgv.Rows
+            If row.IsNewRow Then Continue For
 
-            sb.AppendLine("i2c:")
-            sb.AppendLine($"  - id: i2c_bus")
-            sb.AppendLine($"    sda: {Form1.i2cSda}")
-            sb.AppendLine($"    scl: {Form1.i2cScl}")
-            sb.AppendLine($"    scan: {scan}")
-            sb.AppendLine()
-            sb.AppendLine()
-        End If
+            Dim platform = row.Cells("Plattform").Value?.ToString()?.Trim()
+            Dim paramString = row.Cells("Parameter").Value?.ToString()?.Trim()
+            Dim filterString = row.Cells("Filter").Value?.ToString?.Trim()
 
-        If Form1.spi = True Then
-            sb.AppendLine("spi:")
-            sb.AppendLine($"  clk_pin: {Form1.spiclk}")
-            sb.AppendLine($"  mosi_pin: {Form1.spimosi}")
-            sb.AppendLine($"  miso_pin: {Form1.spimiso}")
-            sb.AppendLine()
-            sb.AppendLine()
-        End If
+            If String.IsNullOrEmpty(platform) Then Continue For
 
-        If alreadysensors = False Then sb.AppendLine("sensor:")
-            alreadysensors = True
+            ' Sensor-Header nur einmal schreiben
+            If Not sensorsExist Then
+                sb.AppendLine("sensor:")
+                sensorsExist = True
+            End If
 
 
-        'GPIO
-        Dim ds18b20list As New List(Of DS18B20Model)
-        Dim dhtlist As New List(Of DHT)
-        Dim hcsr04list As New List(Of HCSR04)
-        'I2C
-        Dim bmp280list As New List(Of BMP280)
-        Dim bme280list As New List(Of BME280)
-        Dim bh1750list As New List(Of BH1750)
-        Dim sht3xdlist As New List(Of SHT3XD)
-        Dim ina219list As New List(Of INA219)
-        'SPI
-        Dim max6675list As New List(Of MAX6675)
-        Dim max31855list As New List(Of MAX31855)
-
-        'Internal 
-        Dim internallist As New List(Of InternalSensor)
-
-
-
-
-
-
-        For i = 0 To dgv.Rows.Count - 1
-                Dim row = dgv.Rows(i)
-
-
-            If row.IsNewRow OrElse row.Cells(1).Value Is Nothing Then Continue For
-
-
-            Dim typecontent As String = row.Cells(1).Value.ToString
-            Dim groupcontent As String = row.Cells(0).Value.ToString
-
-            Select Case True
-                Case typecontent = "DS18B20"
-                    Dim sensor = ds18b20Helper(i, dgv)
-                    If sensor IsNot Nothing Then
-                        ds18b20list.Add(sensor)
-                    End If
-                Case typecontent = "DHT11/DHT22"
-                    Dim sensor = dhtHelper(i, dgv)
-                    If sensor IsNot Nothing Then
-                        dhtlist.Add(sensor)
-                    End If
-                Case typecontent = "HC-SR04"
-                    Dim sensor = hcsr04Helper(i, dgv)
-                    If sensor IsNot Nothing Then
-                        hcsr04list.Add(sensor)
-                    End If
-                Case typecontent = "BMP280"
-                    Dim sensor = bmp280Helper(i, dgv)
-                    If sensor IsNot Nothing Then
-                        bmp280list.Add(sensor)
-                    End If
-                Case typecontent = "BME280"
-                    Dim sensor = bme280Helper(i, dgv)
-                    If sensor IsNot Nothing Then
-                        bme280list.Add(sensor)
-                    End If
-                Case typecontent = "BH1750"
-                    Dim sensor = bh1750Helper(i, dgv)
-                    If sensor IsNot Nothing Then
-                        bh1750list.Add(sensor)
-                    End If
-                Case typecontent = "SHT3X-D"
-                    Dim sensor = sht3xdHelper(i, dgv)
-                    If sensor IsNot Nothing Then
-                        sht3xdlist.Add(sensor)
-                    End If
-                Case typecontent = "INA219"
-                    Dim sensor = ina219Helper(i, dgv)
-                    If sensor IsNot Nothing Then
-                        ina219list.Add(sensor)
-                    End If
-                Case typecontent = "MAX6675"
-                    Dim sensor = max6675Helper(i, dgv)
-                    If sensor IsNot Nothing Then
-                        max6675list.Add(sensor)
-                    End If
-                Case typecontent = "MAX31855"
-                    Dim sensor = max31855Helper(i, dgv)
-                    If sensor IsNot Nothing Then
-                        max31855list.Add(sensor)
-                    End If
-                Case groupcontent = "Interne Sensoren"
-                    Dim sensor = internalHelper(i, dgv)
-                    If sensor IsNot Nothing Then
-                        internallist.Add(sensor)
-                    End If
-
-            End Select
-
-
-
-
-
+            WriteSensorBlock(sb, platform, paramString, filterString)
         Next
-
-
-        For Each sensor As DS18B20Model In ds18b20list
-            sb.AppendLine($"  - platform: {sensor.platform}")
-            If Not String.IsNullOrEmpty(sensor.adress) AndAlso Not sensor.adress = "0" Then sb.AppendLine($"    address: {sensor.adress}")
-            If Not String.IsNullOrEmpty(sensor.name) Then sb.AppendLine($"    name: {sensor.name}")
-            If Not String.IsNullOrEmpty(sensor.onewireid) Then sb.AppendLine($"    one_wire_id: {sensor.onewireid}")
-            If Not String.IsNullOrEmpty(sensor.update_interval) Then sb.AppendLine($"    update_interval: {sensor.update_interval}s")
-            sb.AppendLine()
-        Next
-
-
-        For Each sensor As DHT In dhtlist
-            sb.AppendLine($"  - platform: {sensor.platform}")
-            If Not String.IsNullOrEmpty(sensor.pin) Then sb.AppendLine($"    pin: {sensor.pin}")
-            If Not String.IsNullOrEmpty(sensor.tempname) Then sb.AppendLine($"    temperature:")
-            If Not String.IsNullOrEmpty(sensor.tempname) Then sb.AppendLine($"      name: {sensor.tempname}")
-            If Not String.IsNullOrEmpty(sensor.humname) Then sb.AppendLine($"    humidity:")
-            If Not String.IsNullOrEmpty(sensor.humname) Then sb.AppendLine($"      name: {sensor.humname}")
-            If Not String.IsNullOrEmpty(sensor.update_interval) Then sb.AppendLine($"    update_interval: {sensor.update_interval}s")
-            If Not String.IsNullOrEmpty(sensor.model) Then sb.AppendLine($"    model: {sensor.model}")
-            sb.AppendLine()
-        Next
-
-
-        For Each sensor As HCSR04 In hcsr04list
-            sb.AppendLine($"  - platform: {sensor.platform}")
-            If Not String.IsNullOrEmpty(sensor.trigger) Then sb.AppendLine($"    trigger_pin: {sensor.trigger}")
-            If Not String.IsNullOrEmpty(sensor.echo) Then sb.AppendLine($"    echo_pin: {sensor.echo}")
-            If Not String.IsNullOrEmpty(sensor.name) Then sb.AppendLine($"    name: {sensor.name}")
-            If Not String.IsNullOrEmpty(sensor.timeout) Then sb.AppendLine($"    timeout: {sensor.timeout}m")
-            If Not String.IsNullOrEmpty(sensor.update_interval) Then sb.AppendLine($"    update_interval: {sensor.update_interval}s")
-            If Not String.IsNullOrEmpty(sensor.pulse_time) Then sb.AppendLine($"    pulse_time: {sensor.pulse_time}ms")
-            If Not String.IsNullOrEmpty(sensor.id) Then sb.AppendLine($"    id: {sensor.id}")
-            sb.AppendLine()
-        Next
-
-        For Each sensor As BMP280 In bmp280list
-            sb.AppendLine($"  - platform: {sensor.platform}")
-            If Not String.IsNullOrEmpty(sensor.tempname) Then sb.AppendLine($"    temperature:")
-            If Not String.IsNullOrEmpty(sensor.tempname) Then sb.AppendLine($"      name: {sensor.tempname}")
-            If Not String.IsNullOrEmpty(sensor.tempoversampling) Then sb.AppendLine($"      oversampling: {sensor.tempoversampling}")
-            If Not String.IsNullOrEmpty(sensor.pressurename) Then sb.AppendLine($"    pressure:")
-            If Not String.IsNullOrEmpty(sensor.pressurename) Then sb.AppendLine($"      name: {sensor.pressurename}")
-            If Not String.IsNullOrEmpty(sensor.pressuroversampling) Then sb.AppendLine($"      oversampling: {sensor.pressuroversampling}")
-            If Not String.IsNullOrEmpty(sensor.adress) Then sb.AppendLine($"    address: {sensor.adress}")
-            If Not String.IsNullOrEmpty(sensor.update_interval) Then sb.AppendLine($"    update_interval: {sensor.update_interval}s")
-            sb.AppendLine()
-        Next
-
-        For Each sensor As BME280 In bme280list
-            sb.AppendLine($"  - platform: {sensor.platform}")
-            If Not String.IsNullOrEmpty(sensor.tempname) Then sb.AppendLine($"    temperature:")
-            If Not String.IsNullOrEmpty(sensor.tempname) Then sb.AppendLine($"      name: {sensor.tempname}")
-            If Not String.IsNullOrEmpty(sensor.pressurename) Then sb.AppendLine($"    pressure:")
-            If Not String.IsNullOrEmpty(sensor.pressurename) Then sb.AppendLine($"      name: {sensor.pressurename}")
-            If Not String.IsNullOrEmpty(sensor.humidityname) Then sb.AppendLine($"    humidity:")
-            If Not String.IsNullOrEmpty(sensor.humidityname) Then sb.AppendLine($"      name: {sensor.humidityname}")
-            If Not String.IsNullOrEmpty(sensor.adress) Then sb.AppendLine($"    address: {sensor.adress}")
-            If Not String.IsNullOrEmpty(sensor.update_interval) Then sb.AppendLine($"    update_interval: {sensor.update_interval}s")
-            sb.AppendLine()
-        Next
-
-        For Each sensor As BH1750 In bh1750list
-            sb.AppendLine($"  - platform: {sensor.platform}")
-            If Not String.IsNullOrEmpty(sensor.name) Then sb.AppendLine($"    name: {sensor.name}")
-            If Not String.IsNullOrEmpty(sensor.adress) Then sb.AppendLine($"    address: {sensor.adress}")
-            If Not String.IsNullOrEmpty(sensor.update_interval) Then sb.AppendLine($"    update_interval: {sensor.update_interval}s")
-            sb.AppendLine()
-        Next
-
-        For Each sensor As SHT3XD In sht3xdlist
-            sb.AppendLine($"  - platform: {sensor.platform}")
-            If Not String.IsNullOrEmpty(sensor.tempname) Then sb.AppendLine($"    temperature:")
-            If Not String.IsNullOrEmpty(sensor.tempname) Then sb.AppendLine($"      name: {sensor.tempname}")
-            If Not String.IsNullOrEmpty(sensor.humidityname) Then sb.AppendLine($"    humidity:")
-            If Not String.IsNullOrEmpty(sensor.humidityname) Then sb.AppendLine($"      name: {sensor.humidityname}")
-            If Not String.IsNullOrEmpty(sensor.adress) Then sb.AppendLine($"    address: {sensor.adress}")
-            If Not String.IsNullOrEmpty(sensor.update_interval) Then sb.AppendLine($"    update_interval: {sensor.update_interval}s")
-            sb.AppendLine()
-        Next
-
-        For Each sensor As INA219 In ina219list
-            sb.AppendLine($"  - platform: {sensor.platform}")
-            If Not String.IsNullOrEmpty(sensor.adress) Then sb.AppendLine($"    address: {sensor.adress}")
-            If Not String.IsNullOrEmpty(sensor.shunt_resistance) Then sb.AppendLine($"    shunt_resistance: {sensor.shunt_resistance} ohm")
-            If Not String.IsNullOrEmpty(sensor.currentname) Then sb.AppendLine($"    current:")
-            If Not String.IsNullOrEmpty(sensor.currentname) Then sb.AppendLine($"      name: {sensor.currentname}")
-            If Not String.IsNullOrEmpty(sensor.powername) Then sb.AppendLine($"    power:")
-            If Not String.IsNullOrEmpty(sensor.powername) Then sb.AppendLine($"      name: {sensor.powername}")
-            If Not String.IsNullOrEmpty(sensor.bus_voltagename) Then sb.AppendLine($"    bus_voltage:")
-            If Not String.IsNullOrEmpty(sensor.bus_voltagename) Then sb.AppendLine($"      name: {sensor.bus_voltagename}")
-            If Not String.IsNullOrEmpty(sensor.shunt_voltagename) Then sb.AppendLine($"    shunt_voltage:")
-            If Not String.IsNullOrEmpty(sensor.shunt_voltagename) Then sb.AppendLine($"      name: {sensor.shunt_voltagename}")
-            If Not String.IsNullOrEmpty(sensor.max_voltage) Then sb.AppendLine($"    max_voltage: {sensor.max_voltage}V")
-            If Not String.IsNullOrEmpty(sensor.max_current) Then sb.AppendLine($"    max_current: {sensor.max_current}A")
-            If Not String.IsNullOrEmpty(sensor.update_interval) Then sb.AppendLine($"    update_interval: {sensor.update_interval}s")
-            sb.AppendLine()
-        Next
-
-
-        For Each sensor As MAX6675 In max6675list
-            sb.AppendLine($"  - platform: {sensor.platform}")
-            If Not String.IsNullOrEmpty(sensor.name) Then sb.AppendLine($"    name: {sensor.name}")
-            If Not String.IsNullOrEmpty(sensor.cs) Then sb.AppendLine($"    cs_pin: {sensor.cs}")
-            If Not String.IsNullOrEmpty(sensor.update_interval) Then sb.AppendLine($"    update_interval: {sensor.update_interval}s")
-            sb.AppendLine()
-        Next
-        For Each sensor As MAX31855 In max31855list
-            sb.AppendLine($"  - platform: {sensor.platform}")
-            If Not String.IsNullOrEmpty(sensor.name) Then sb.AppendLine($"    name: {sensor.name}")
-            If Not String.IsNullOrEmpty(sensor.cs) Then sb.AppendLine($"    cs_pin: {sensor.cs}")
-            If Not String.IsNullOrEmpty(sensor.update_interval) Then sb.AppendLine($"    update_interval: {sensor.update_interval}s")
-            sb.AppendLine()
-        Next
-
-        For Each sensor As InternalSensor In internallist
-            sb.AppendLine($"  - platform: {sensor.platform}")
-            If Not String.IsNullOrEmpty(sensor.name) Then sb.AppendLine($"    name: {sensor.name}")
-            If Not String.IsNullOrEmpty(sensor.update_interval) Then sb.AppendLine($"    update_interval: {sensor.update_interval}s")
-            sb.AppendLine()
-        Next
-
     End Sub
+
 
     Public Function KeyValuePairsFun(rowIndex As Integer, dgv As DataGridView) As Dictionary(Of String, String)
         Dim dict As New Dictionary(Of String, String)
@@ -552,418 +450,208 @@ Module sensors
         Next
         Return dict
     End Function
-#Region "GPIO-Helper"
-    Private Function ds18b20Helper(rowIndex As Integer, dgv As DataGridView) As DS18B20Model
-        Try
-            Dim sensor As New DS18B20Model
 
-            sensor.platform = dgv.Rows(rowIndex).Cells(2).Value?.ToString()
-            sensor.onewireid = Form1.OneWireID
+    Private Function BuildParamTree(paramString As String) As Dictionary(Of String, Object)
+        Dim root As New Dictionary(Of String, Object)(StringComparer.OrdinalIgnoreCase)
 
-            Dim keyValuePairs As New Dictionary(Of String, String)
-            keyValuePairs = KeyValuePairsFun(rowIndex, dgv)
+        If String.IsNullOrWhiteSpace(paramString) Then Return root
 
-            If keyValuePairs.ContainsKey("name") Then
-                sensor.name = keyValuePairs("name")
-            End If
+        For Each part In paramString.Split(","c)
+            Dim kv = part.Split("="c, 2)
+            If kv.Length <> 2 Then Continue For
 
-            If keyValuePairs.ContainsKey("address") Then
-                sensor.adress = keyValuePairs("address") ' 
-            End If
+            Dim rawKey = kv(0).Trim()
+            Dim rawVal = kv(1).Trim()
 
-            If keyValuePairs.ContainsKey("update_interval") Then
-                sensor.update_interval = keyValuePairs("update_interval") ' 
-            End If
+            Dim path = rawKey.Split("."c)
+            Dim node = root
 
-            Return sensor
+            For i = 0 To path.Length - 1
+                Dim key = path(i).Trim()
+                Dim isLeaf = (i = path.Length - 1)
 
-        Catch ex As Exception
-            MsgBox($"Sensor aus der Zeile {rowIndex} konnte nicht gelesen werden: {ex.Message}")
-            Return Nothing
-        End Try
+                If isLeaf Then
+                    node(key) = rawVal
+                Else
+                    If Not node.ContainsKey(key) OrElse Not TypeOf node(key) Is Dictionary(Of String, Object) Then
+                        node(key) = New Dictionary(Of String, Object)(StringComparer.OrdinalIgnoreCase)
+                    End If
+                    node = CType(node(key), Dictionary(Of String, Object))
+                End If
+            Next
+        Next
+
+        Return root
     End Function
-    Private Function dhtHelper(rowIndex As Integer, dgv As DataGridView) As DHT
-        Try
-            Dim sensor As New DHT
+    Private Sub WriteYamlNode(sb As StringBuilder, level As Integer, key As String, value As Object)
+        Dim indent = New String(" "c, level * 2)
 
-            sensor.platform = "dht"
+        If TypeOf value Is String Then
+            sb.AppendLine($"{indent}{key}: {value}")
+        ElseIf TypeOf value Is Dictionary(Of String, Object) Then
+            sb.AppendLine($"{indent}{key}:")
+            For Each kvp In CType(value, Dictionary(Of String, Object))
+                WriteYamlNode(sb, level + 1, kvp.Key, kvp.Value)
+            Next
+        End If
+    End Sub
+    Private Sub WriteSensorBlock(sb As StringBuilder, platform As String, paramString As String, filterCellContent As String)
+        sb.AppendLine($"  - platform: {platform}")
 
-            Dim keyValuePairs As New Dictionary(Of String, String)
-            keyValuePairs = KeyValuePairsFun(rowIndex, dgv)
+        ' Key-Value-Paare aus paramString
+        Dim flatDict As New Dictionary(Of String, String)
+        For Each part In paramString.Split(","c)
+            Dim keyVal = part.Trim().Split("="c, 2)
+            If keyVal.Length = 2 Then
+                flatDict(keyVal(0).Trim()) = keyVal(1).Trim()
+            End If
+        Next
 
-            If keyValuePairs.ContainsKey("pin") Then
-                sensor.pin = keyValuePairs("pin")
+        ' Vorbereitung verschachtelte Felder
+        Dim nestedDict As New Dictionary(Of String, Dictionary(Of String, String))
+        Dim simpleKeys As New Dictionary(Of String, String)
+
+        Dim flatKeys As New HashSet(Of String) From {
+        "update_interval", "timeout", "accuracy_decimals", "echo_pin", "trigger_pin", "pulse_time",
+        "shunt_resistance", "max_voltage", "max_current", "bus_voltage", "shunt_voltage",
+        "cs_pin", "internal_filter", "unit_of_measurement", "accuracy_decimals"
+    }
+
+        Dim accuracyFixups = New Dictionary(Of String, Tuple(Of String, String)) From {
+        {"temperature_accuracy_decimals", Tuple.Create("temperature", "accuracy_decimals")},
+        {"humidity_accuracy_decimals", Tuple.Create("humidity", "accuracy_decimals")}
+    }
+
+        For Each kvp In flatDict
+            Dim keyLower = kvp.Key.ToLower()
+
+            If accuracyFixups.ContainsKey(keyLower) Then
+                Dim target = accuracyFixups(keyLower)
+                If Not nestedDict.ContainsKey(target.Item1) Then nestedDict(target.Item1) = New Dictionary(Of String, String)
+                nestedDict(target.Item1)(target.Item2) = kvp.Value
+                Continue For
             End If
 
-            If keyValuePairs.ContainsKey("tempname") Then
-                sensor.tempname = keyValuePairs("tempname")
+            If kvp.Key.Contains("_") AndAlso Not flatKeys.Contains(keyLower) Then
+                Dim parts = kvp.Key.Split("_"c)
+                If parts.Length >= 2 Then
+                    Dim group = String.Join("_", parts.Take(parts.Length - 1)).Trim()
+                    Dim subkey = parts.Last().Trim()
+                    If Not nestedDict.ContainsKey(group) Then nestedDict(group) = New Dictionary(Of String, String)
+                    nestedDict(group)(subkey) = kvp.Value
+                Else
+                    simpleKeys(kvp.Key) = kvp.Value
+                End If
+            Else
+                simpleKeys(kvp.Key) = kvp.Value
             End If
+        Next
 
-            If keyValuePairs.ContainsKey("humidityName") Then
-                sensor.humname = keyValuePairs("humidityName")
+        ' Count Mode
+        If nestedDict.ContainsKey("count_mode_rising") OrElse nestedDict.ContainsKey("count_mode_falling") Then
+            sb.AppendLine("    count_mode:")
+            If nestedDict.ContainsKey("count_mode_rising") Then
+                For Each inner In nestedDict("count_mode_rising")
+                    sb.AppendLine($"      rising_edge: {inner.Value}")
+                Next
+                nestedDict.Remove("count_mode_rising")
             End If
-
-            If keyValuePairs.ContainsKey("update_interval") Then
-                sensor.update_interval = keyValuePairs("update_interval") ' 
+            If nestedDict.ContainsKey("count_mode_falling") Then
+                For Each inner In nestedDict("count_mode_falling")
+                    sb.AppendLine($"      falling_edge: {inner.Value}")
+                Next
+                nestedDict.Remove("count_mode_falling")
             End If
+        End If
 
-            If keyValuePairs.ContainsKey("model") Then
-                sensor.model = keyValuePairs("model") ' 
+        ' Einheiten
+        Dim unit_s = New HashSet(Of String) From {"update_interval", "timeout"}
+        Dim unit_ms = New HashSet(Of String) From {"pulse_time"}
+        Dim unit_v = New HashSet(Of String) From {"max_voltage"}
+        Dim unit_a = New HashSet(Of String) From {"max_current"}
+        Dim unit_ohm = New HashSet(Of String) From {"shunt_resistance"}
+        Dim unit_us = New HashSet(Of String) From {"internal_filter"}
+
+        ' Flache Felder
+        For Each kvp In simpleKeys
+            Dim key = kvp.Key
+            Dim val = kvp.Value
+
+            If unit_s.Contains(key) Then
+                sb.AppendLine($"    {key}: {val}s")
+            ElseIf unit_ms.Contains(key) Then
+                sb.AppendLine($"    {key}: {val}ms")
+            ElseIf unit_v.Contains(key) Then
+                sb.AppendLine($"    {key}: {val}V")
+            ElseIf unit_a.Contains(key) Then
+                sb.AppendLine($"    {key}: {val}A")
+            ElseIf unit_ohm.Contains(key) Then
+                sb.AppendLine($"    {key}: {val} ohm")
+            ElseIf unit_us.Contains(key) Then
+                sb.AppendLine($"    {key}: {val}us")
+            Else
+                sb.AppendLine($"    {key}: {val}")
             End If
+        Next
 
+        ' Filter als JSON auswerten
+        Dim filterData As JObject = Nothing
+        If Not String.IsNullOrWhiteSpace(filterCellContent) Then
+            Try
+                filterData = JObject.Parse(filterCellContent)
+            Catch ex As Exception
+                sb.AppendLine("    # Fehler beim Parsen der Filterkonfiguration")
+            End Try
+        End If
 
-            Return sensor
+        ' Nested Felder schreiben (inkl. Filter)
+        For Each outer In nestedDict
+            sb.AppendLine($"    {outer.Key}:")
+            For Each inner In outer.Value
+                sb.AppendLine($"      {inner.Key}: {inner.Value}")
+            Next
 
-        Catch ex As Exception
-            MsgBox($"Sensor aus der Zeile {rowIndex} konnte nicht gelesen werden: {ex.Message}")
-            Return Nothing
-        End Try
-    End Function
-
-    Private Function hcsr04Helper(rowIndex As Integer, dgv As DataGridView) As HCSR04
-        Try
-            Dim sensor As New HCSR04
-
-            sensor.platform = "ultrasonic"
-
-
-            Dim keyValuePairs As New Dictionary(Of String, String)
-            keyValuePairs = KeyValuePairsFun(rowIndex, dgv)
-
-            If keyValuePairs.ContainsKey("trigger_pin") Then
-                sensor.trigger = keyValuePairs("trigger_pin")
+            ' Filter für diesen Block?
+            If filterData IsNot Nothing AndAlso filterData.ContainsKey(outer.Key) Then
+                sb.AppendLine("      filters:")
+                For Each f In CType(filterData(outer.Key), JObject).Properties()
+                    Dim val = f.Value.ToString().Trim()
+                    If val.Contains(Environment.NewLine) Then
+                        sb.AppendLine($"        - {f.Name}:")
+                        For Each line In val.Split({Environment.NewLine}, StringSplitOptions.RemoveEmptyEntries)
+                            sb.AppendLine($"            {line.Trim()}")
+                        Next
+                    Else
+                        sb.AppendLine($"        - {f.Name}: {val}")
+                    End If
+                Next
             End If
+        Next
 
-            If keyValuePairs.ContainsKey("echo_pin") Then
-                sensor.echo = keyValuePairs("echo_pin")
-            End If
+        ' Falls keine Nested vorhanden → globaler Filterblock
+        If nestedDict.Count = 0 AndAlso filterData IsNot Nothing AndAlso filterData.ContainsKey("global") Then
+            sb.AppendLine("    filters:")
+            For Each f In CType(filterData("global"), JObject).Properties()
+                Dim val = f.Value.ToString().Trim()
+                If val.Contains(Environment.NewLine) Then
+                    sb.AppendLine($"      - {f.Name}:")
+                    For Each line In val.Split({Environment.NewLine}, StringSplitOptions.RemoveEmptyEntries)
+                        sb.AppendLine($"          {line.Trim()}")
+                    Next
+                Else
+                    sb.AppendLine($"      - {f.Name}: {val}")
+                End If
+            Next
+        End If
 
-            If keyValuePairs.ContainsKey("name") Then
-                sensor.name = keyValuePairs("name")
-            End If
+        sb.AppendLine()
+    End Sub
 
-            If keyValuePairs.ContainsKey("update_interval") Then
-                sensor.update_interval = keyValuePairs("update_interval") ' 
-            End If
 
-            If keyValuePairs.ContainsKey("timeout") Then
-                sensor.timeout = keyValuePairs("timeout") ' 
-            End If
 
-            If keyValuePairs.ContainsKey("pulse_time") Then
-                sensor.pulse_time = keyValuePairs("pulse_time") ' 
-            End If
 
-            If keyValuePairs.ContainsKey("id") Then
-                sensor.id = keyValuePairs("id") ' 
-            End If
 
 
-            Return sensor
-
-        Catch ex As Exception
-            MsgBox($"Sensor aus der Zeile {rowIndex} konnte nicht gelesen werden: {ex.Message}")
-            Return Nothing
-        End Try
-    End Function
-
-#End Region
-#Region "I2C-Helper"
-
-
-    Private Function bmp280Helper(rowIndex As Integer, dgv As DataGridView) As BMP280
-        Try
-            Dim sensor As New BMP280
-
-            sensor.platform = "bmp280_i2c"
-
-
-            Dim keyValuePairs As New Dictionary(Of String, String)
-            keyValuePairs = KeyValuePairsFun(rowIndex, dgv)
-
-            If keyValuePairs.ContainsKey("address") Then
-                sensor.adress = keyValuePairs("address")
-            End If
-
-            If keyValuePairs.ContainsKey("tempname") Then
-                sensor.tempname = keyValuePairs("tempname")
-            End If
-
-            If keyValuePairs.ContainsKey("tempoversampling") Then
-                sensor.tempoversampling = keyValuePairs("tempoversampling")
-            End If
-
-            If keyValuePairs.ContainsKey("pressurename") Then
-                sensor.pressurename = keyValuePairs("pressurename")
-
-            End If
-
-            If keyValuePairs.ContainsKey("pressureoversampling") Then
-                sensor.pressuroversampling = keyValuePairs("pressureoversampling") ' 
-            End If
-
-            If keyValuePairs.ContainsKey("update_interval") Then
-                sensor.update_interval = keyValuePairs("update_interval") ' 
-            End If
-
-            Return sensor
-
-        Catch ex As Exception
-            MsgBox($"Sensor aus der Zeile {rowIndex} konnte nicht gelesen werden: {ex.Message}")
-            Return Nothing
-        End Try
-    End Function
-
-    Private Function bme280Helper(rowIndex As Integer, dgv As DataGridView) As BME280
-        Try
-            Dim sensor As New BME280
-
-            sensor.platform = "bme280_i2c"
-
-
-            Dim keyValuePairs As New Dictionary(Of String, String)
-            keyValuePairs = KeyValuePairsFun(rowIndex, dgv)
-
-            If keyValuePairs.ContainsKey("address") Then
-                sensor.adress = keyValuePairs("address")
-            End If
-
-            If keyValuePairs.ContainsKey("tempname") Then
-                sensor.tempname = keyValuePairs("tempname")
-            End If
-
-            If keyValuePairs.ContainsKey("pressurename") Then
-                sensor.pressurename = keyValuePairs("pressurename")
-            End If
-
-            If keyValuePairs.ContainsKey("humidityname") Then
-                sensor.humidityname = keyValuePairs("humidityname")
-            End If
-
-            If keyValuePairs.ContainsKey("update_interval") Then
-                sensor.update_interval = keyValuePairs("update_interval") ' 
-            End If
-
-            Return sensor
-
-        Catch ex As Exception
-            MsgBox($"Sensor aus der Zeile {rowIndex} konnte nicht gelesen werden: {ex.Message}")
-            Return Nothing
-        End Try
-    End Function
-
-    Private Function bh1750Helper(rowIndex As Integer, dgv As DataGridView) As BH1750
-        Try
-            Dim sensor As New BH1750
-
-            sensor.platform = "bh1750"
-
-
-            Dim keyValuePairs As New Dictionary(Of String, String)
-            keyValuePairs = KeyValuePairsFun(rowIndex, dgv)
-
-            If keyValuePairs.ContainsKey("address") Then
-                sensor.adress = keyValuePairs("address")
-            End If
-
-            If keyValuePairs.ContainsKey("name") Then
-                sensor.name = keyValuePairs("name")
-            End If
-
-
-            If keyValuePairs.ContainsKey("update_interval") Then
-                sensor.update_interval = keyValuePairs("update_interval") ' 
-            End If
-
-            Return sensor
-
-        Catch ex As Exception
-            MsgBox($"Sensor aus der Zeile {rowIndex} konnte nicht gelesen werden: {ex.Message}")
-            Return Nothing
-        End Try
-    End Function
-
-
-
-    Private Function sht3xdHelper(rowIndex As Integer, dgv As DataGridView) As SHT3XD
-        Try
-            Dim sensor As New SHT3XD
-
-            sensor.platform = "sht3xd"
-
-            Dim keyValuePairs As New Dictionary(Of String, String)
-            keyValuePairs = KeyValuePairsFun(rowIndex, dgv)
-
-
-            If keyValuePairs.ContainsKey("address") Then
-                sensor.adress = keyValuePairs("address")
-            End If
-
-            If keyValuePairs.ContainsKey("tempname") Then
-                sensor.tempname = keyValuePairs("tempname")
-            End If
-
-            If keyValuePairs.ContainsKey("humitidyname") Then
-                sensor.humidityname = keyValuePairs("humitidyname")
-            End If
-
-            If keyValuePairs.ContainsKey("update_interval") Then
-                sensor.update_interval = keyValuePairs("update_interval") ' 
-            End If
-
-            Return sensor
-
-        Catch ex As Exception
-            MsgBox($"Sensor aus der Zeile {rowIndex} konnte nicht gelesen werden: {ex.Message}")
-            Return Nothing
-        End Try
-    End Function
-
-    Private Function ina219Helper(rowIndex As Integer, dgv As DataGridView) As INA219
-        Try
-            Dim sensor As New INA219
-
-            sensor.platform = "ina219"
-
-            Dim keyValuePairs As New Dictionary(Of String, String)
-            keyValuePairs = KeyValuePairsFun(rowIndex, dgv)
-
-
-            If keyValuePairs.ContainsKey("address") Then
-                sensor.adress = keyValuePairs("address")
-            End If
-
-            If keyValuePairs.ContainsKey("shunt_resistance") Then
-                sensor.shunt_resistance = keyValuePairs("shunt_resistance")
-            End If
-
-            If keyValuePairs.ContainsKey("currentname") Then
-                sensor.currentname = keyValuePairs("currentname")
-            End If
-
-            If keyValuePairs.ContainsKey("powername") Then
-                sensor.powername = keyValuePairs("powername") ' 
-            End If
-
-            If keyValuePairs.ContainsKey("bus_voltage_name") Then
-                sensor.bus_voltagename = keyValuePairs("bus_voltage_name")
-            End If
-
-            If keyValuePairs.ContainsKey("shunt_voltage_name") Then
-                sensor.shunt_voltagename = keyValuePairs("shunt_voltage_name")
-            End If
-
-            If keyValuePairs.ContainsKey("max_voltage") Then
-                sensor.max_voltage = keyValuePairs("max_voltage") ' 
-            End If
-
-            If keyValuePairs.ContainsKey("max_current") Then
-                sensor.max_current = keyValuePairs("max_current") ' 
-            End If
-
-            If keyValuePairs.ContainsKey("update_interval") Then
-                sensor.update_interval = keyValuePairs("update_interval") ' 
-            End If
-
-
-
-            Return sensor
-
-        Catch ex As Exception
-            MsgBox($"Sensor aus der Zeile {rowIndex} konnte nicht gelesen werden: {ex.Message}")
-            Return Nothing
-        End Try
-    End Function
-#End Region
-#Region "SPI-HELPER"
-
-    Private Function max6675Helper(rowIndex As Integer, dgv As DataGridView) As MAX6675
-        Try
-            Dim sensor As New MAX6675
-
-            sensor.platform = "max6675"
-
-            Dim keyValuePairs As New Dictionary(Of String, String)
-            keyValuePairs = KeyValuePairsFun(rowIndex, dgv)
-
-
-            If keyValuePairs.ContainsKey("name") Then
-                sensor.name = keyValuePairs("name")
-            End If
-
-            If keyValuePairs.ContainsKey("cs_pin") Then
-                sensor.cs = keyValuePairs("cs_pin")
-            End If
-
-            If keyValuePairs.ContainsKey("update_interval") Then
-                sensor.update_interval = keyValuePairs("update_interval") ' 
-            End If
-
-            Return sensor
-
-        Catch ex As Exception
-            MsgBox($"Sensor aus der Zeile {rowIndex} konnte nicht gelesen werden: {ex.Message}")
-            Return Nothing
-        End Try
-    End Function
-
-    Private Function max31855Helper(rowIndex As Integer, dgv As DataGridView) As MAX31855
-        Try
-            Dim sensor As New MAX31855
-
-            sensor.platform = "max31855"
-
-            Dim keyValuePairs As New Dictionary(Of String, String)
-            keyValuePairs = KeyValuePairsFun(rowIndex, dgv)
-
-
-            If keyValuePairs.ContainsKey("name") Then
-                sensor.name = keyValuePairs("name")
-            End If
-
-            If keyValuePairs.ContainsKey("cs_pin") Then
-                sensor.cs = keyValuePairs("cs_pin")
-            End If
-
-            If keyValuePairs.ContainsKey("update_interval") Then
-                sensor.update_interval = keyValuePairs("update_interval") ' 
-            End If
-
-            Return sensor
-
-        Catch ex As Exception
-            MsgBox($"Sensor aus der Zeile {rowIndex} konnte nicht gelesen werden: {ex.Message}")
-            Return Nothing
-        End Try
-    End Function
-#End Region
-#Region "Internal Sensor"
-    Private Function internalHelper(rowIndex As Integer, dgv As DataGridView) As InternalSensor
-        Try
-            Dim sensor As New InternalSensor
-
-            sensor.platform = dgv.Rows(rowIndex).Cells(2).Value.ToString
-
-            Dim keyValuePairs As New Dictionary(Of String, String)
-            keyValuePairs = KeyValuePairsFun(rowIndex, dgv)
-
-
-            If keyValuePairs.ContainsKey("name") Then
-                sensor.name = keyValuePairs("name")
-            End If
-
-            If keyValuePairs.ContainsKey("update_interval") Then
-                sensor.update_interval = keyValuePairs("update_interval") ' 
-            End If
-
-            Return sensor
-
-        Catch ex As Exception
-            MsgBox($"Sensor aus der Zeile {rowIndex} konnte nicht gelesen werden: {ex.Message}")
-            Return Nothing
-        End Try
-    End Function
-#End Region
 End Module
 
 Public Class SensorModel

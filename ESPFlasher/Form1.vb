@@ -149,21 +149,22 @@ Public Class Form1
         End Try
     End Sub
 
-
-
-
-
-    Private Sub DownloadPython_Click(sender As Object, e As EventArgs) Handles DownloadPython.Click
+    Private Sub PythonWebseiteÖffnenToolStripMenuItem1_Click(sender As Object, e As EventArgs) Handles PythonWebseiteÖffnenToolStripMenuItem1.Click
         Process.Start(New ProcessStartInfo With {
-    .FileName = "https://www.python.org/downloads/",
-    .UseShellExecute = True
-        })
-
+.FileName = "https://www.python.org/downloads/",
+.UseShellExecute = True
+    })
     End Sub
 
-    Private Sub PIPESPHome_Click(sender As Object, e As EventArgs) Handles PIPESPHome.Click
+    Private Sub ESPHomePerPIPInstallierenToolStripMenuItem_Click(sender As Object, e As EventArgs) Handles ESPHomePerPIPInstallierenToolStripMenuItem.Click
         InstallESPHome()
     End Sub
+    Private Sub BusEinstellungenToolStripMenuItem_Click(sender As Object, e As EventArgs) Handles BusEinstellungenToolStripMenuItem.Click
+        Bussettings.ShowDialog()
+    End Sub
+
+
+
 #Region "ESPSettings"
     Private Sub CB_ActivateFallback_CheckedChanged(sender As Object, e As EventArgs) Handles CB_ActivateFallback.CheckedChanged
         If CB_ActivateFallback.Checked Then
@@ -208,21 +209,19 @@ Public Class Form1
         End If
     End Sub
 
-    Private Sub CreateBinFile_Click(sender As Object, e As EventArgs) Handles CreateBinFile.Click
+    Private Sub VerbindungPrüfenToolStripMenuItem_Click(sender As Object, e As EventArgs) Handles VerbindungPrüfenToolStripMenuItem.Click
+        AutoDetectESP()
+    End Sub
+
+    Private Sub BinErstellenUndFlashenToolStripMenuItem_Click(sender As Object, e As EventArgs) Handles BinErstellenUndFlashenToolStripMenuItem.Click
         TabControl1.SelectedIndex = 0
 
 
-        generateYaml(True)
+        generateYaml(True, False)
     End Sub
-    Private Sub CompileTest_Click(sender As Object, e As EventArgs)
-
+    Private Sub YamlErstellenUndÖffnenToolStripMenuItem_Click(sender As Object, e As EventArgs) Handles YamlErstellenUndÖffnenToolStripMenuItem.Click
+        generateYaml(False, False)
     End Sub
-    Private Sub CreateYamlandOpen_Click(sender As Object, e As EventArgs) Handles CreateYamlandOpen.Click
-        generateYaml(False)
-    End Sub
-
-
-
 #End Region
 
 
@@ -361,6 +360,7 @@ Public Class Form1
                                                Try
                                                    Await LoadYaml(yamlPath)
                                                    Await LoadDGVFromJson(DGV_Sensors)
+                                                   Await LoadDGVDisplayFromJson(DGV_Display)
                                                    Await LoadGlobalBusFromJson()
 
                                                Catch ex As Exception
@@ -382,7 +382,7 @@ Public Class Form1
 
     End Function
 
-    Private Sub TestESPConnection_Click(sender As Object, e As EventArgs) Handles TestESPConnection.Click
+    Private Sub TestESPConnection_Click(sender As Object, e As EventArgs)
         AutoDetectESP()
     End Sub
 
@@ -399,20 +399,22 @@ Public Class Form1
         End If
         Return Task.CompletedTask
     End Function
-
+    Private Sub OTAUpdateToolStripMenuItem_Click(sender As Object, e As EventArgs) Handles OTAUpdateToolStripMenuItem.Click
+        generateYaml(False, True)
+    End Sub
 
 #End Region
 
 
 
-#Region "Sensors"
+#Region "Sensors & Displays"
     Private Sub CBB_SensoreGroup_SelectedIndexChanged(sender As Object, e As EventArgs) Handles CBB_SensoreGroup.SelectedIndexChanged
         Dim selectedGroup = If(CBB_SensoreGroup.SelectedItem IsNot Nothing, CBB_SensoreGroup.SelectedItem.ToString(), Nothing)
 
         CBB_SensorType.Items.Clear()
         CBB_SensorType.Text = ""
         pnl_SensorConfig.Controls.Clear()
-
+        RTB_yamlPreviewSensor.Clear()
 
         If sensorData IsNot Nothing AndAlso sensorData.ContainsKey(selectedGroup) Then
             For Each sensor In sensorData(selectedGroup)
@@ -430,6 +432,7 @@ Public Class Form1
 
         Dim jsonText = File.ReadAllText(Application.StartupPath & "\sensors.json")
         Dim jsonData = JObject.Parse(jsonText)
+        RTB_yamlPreviewSensor.Clear()
 
         If jsonData.ContainsKey(selectedGroup) AndAlso jsonData(selectedGroup)(selectedSensor) IsNot Nothing Then
             Dim sensorInfo = jsonData(selectedGroup)(selectedSensor)
@@ -499,98 +502,6 @@ Public Class Form1
                 DGV_Sensors.Rows.RemoveAt(rowIndex)
             End If
         End If
-    End Sub
-
-
-    Private Sub BTN_OneWireSettingsSave_Click(sender As Object, e As EventArgs) Handles BTN_OneWireSettingsSave.Click
-        If Txt_OneWireBusID.Text.Length > 0 AndAlso Txt_OneWireGPIOPin.Text.Length > 0 Then
-            OneWireID = Txt_OneWireBusID.Text
-            OneWirePIN = Txt_OneWireGPIOPin.Text
-            OneWire = True
-            lbl_onewiresavestate.Text = "Gespeichert"
-            lbl_onewiresavestate.ForeColor = Color.Green
-
-        Else
-            MsgBox("Bitte ID und PIN ausfüllen")
-        End If
-    End Sub
-
-    Private Sub BTN_OneWireSettingsDelete_Click(sender As Object, e As EventArgs) Handles BTN_OneWireSettingsDelete.Click
-        OneWireID = ""
-        OneWirePIN = ""
-        OneWire = False
-        lbl_onewiresavestate.Text = "Nicht Gespeichert"
-        lbl_onewiresavestate.ForeColor = Color.Red
-    End Sub
-
-    Private Sub BTN_i2cSettingsSave_Click(sender As Object, e As EventArgs) Handles BTN_i2cSettingsSave.Click
-        If txt_i2cscl.Text.Length > 0 AndAlso txt_i2csda.Text.Length > 0 Then
-            i2cScl = txt_i2cscl.Text
-            i2cSda = txt_i2csda.Text
-            i2cScan = CB_i2cScan.Checked
-            i2c = True
-            lbl_i2csavestate.Text = "Gespeichert"
-            lbl_i2csavestate.ForeColor = Color.Green
-        Else
-            MsgBox("Bitte scl und sda ausfüllen")
-        End If
-    End Sub
-
-    Private Sub BTN_i2cSettingsDelete_Click(sender As Object, e As EventArgs) Handles BTN_i2cSettingsDelete.Click
-        i2cScl = ""
-        i2cSda = ""
-        i2cScan = False
-        i2c = False
-        lbl_i2csavestate.Text = "Nicht Gespeichert"
-        lbl_i2csavestate.ForeColor = Color.Red
-    End Sub
-
-    Private Sub BTN_spiSettingsSave_Click(sender As Object, e As EventArgs) Handles BTN_spiSettingsSave.Click
-        If txt_spiclk.Text.Length > 0 AndAlso txt_spimosi.Text.Length > 0 AndAlso txt_spimiso.Text.Length > 0 Then
-            spiclk = txt_spiclk.Text
-            spimosi = txt_spimosi.Text
-            spimiso = txt_spimiso.Text
-            spi = True
-            lbl_spisavestate.Text = "Gespeichert"
-            lbl_spisavestate.ForeColor = Color.Green
-        Else
-            MsgBox("Bitte clk, mosi und miso ausfüllen")
-        End If
-
-
-    End Sub
-
-    Private Sub BTN_spiSettingsDelete_Click(sender As Object, e As EventArgs) Handles BTN_spiSettingsDelete.Click
-        spiclk = ""
-        spimosi = ""
-        spimiso = ""
-        spi = False
-        lbl_spisavestate.Text = "Nicht Gespeichert"
-        lbl_spisavestate.ForeColor = Color.Red
-    End Sub
-
-
-    Private Sub BTN_uartSettingsSave_Click(sender As Object, e As EventArgs) Handles BTN_uartSettingsSave.Click
-        If Not CBB_UartBaudrate.SelectedItem = -1 AndAlso Not String.IsNullOrEmpty(txt_UartRx.Text) AndAlso Not String.IsNullOrEmpty(txt_UartTx.Text) Then
-            uartBaudrate = CBB_UartBaudrate.SelectedItem.ToString
-            uartRx = txt_UartRx.Text
-            uartTx = txt_UartTx.Text
-            uart = True
-            lbl_uartsavestate.Text = "Gespeichert"
-            lbl_uartsavestate.ForeColor = Color.Green
-        Else
-            MsgBox("Bitte Baudrate, Rx und Tx ausfüllen")
-        End If
-    End Sub
-
-    Private Sub BTN_uartSettingsDelete_Click(sender As Object, e As EventArgs) Handles BTN_uartSettingsDelete.Click
-        uartBaudrate = ""
-        uartRx = ""
-        uartTx = ""
-        uart = False
-        lbl_uartsavestate.Text = "Nicht Gespeichert"
-        lbl_uartsavestate.ForeColor = Color.Red
-
     End Sub
     Private Sub Edit_Click(sender As Object, e As EventArgs) Handles Edit.Click
         Dim dgv = DGV_Sensors
@@ -741,14 +652,39 @@ Public Class Form1
 
     End Sub
 
+    Private Sub BTN_DeleteDisplay_Click(sender As Object, e As EventArgs) Handles BTN_DeleteDisplay.Click
+
+        ' Wenn ganze Zeilen markiert sind:
+        If DGV_Display.SelectedRows.Count > 0 Then
+            For Each row As DataGridViewRow In DGV_Display.SelectedRows
+                If Not row.IsNewRow Then
+                    DGV_Display.Rows.Remove(row)
+                End If
+            Next
+        ElseIf DGV_Display.SelectedCells.Count > 0 Then
+            ' Falls nur eine Zelle markiert ist:
+            Dim rowIndex = DGV_Display.SelectedCells(0).RowIndex
+            If Not DGV_Display.Rows(rowIndex).IsNewRow Then
+                DGV_Display.Rows.RemoveAt(rowIndex)
+            End If
+        End If
+    End Sub
+
+
+
+
+
+
+
+
+
+
 
 
 
 
 
 #End Region
-#Region "Display"
 
-#End Region
 
 End Class

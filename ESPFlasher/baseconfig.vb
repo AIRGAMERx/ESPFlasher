@@ -16,7 +16,7 @@ Public Class baseconfig
     End Sub
 
     Private Sub baseconfig_Load(sender As Object, e As EventArgs) Handles MyBase.Load
-        MsgBox("hier")
+
         Try
             Dim sensorInfo As JObject = CType(SensorDefinitions(SensorGroup)(SensorType), JObject)
             LoadBaseConfigFields(sensorInfo)
@@ -271,8 +271,7 @@ Public Class baseconfig
         End Try
     End Sub
 
+    Private Sub Panel_BaseConfig_Paint(sender As Object, e As PaintEventArgs) Handles Panel_BaseConfig.Paint
 
-
-
-
+    End Sub
 End Class

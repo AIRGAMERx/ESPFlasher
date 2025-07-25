@@ -1,4 +1,5 @@
 ﻿Imports System.IO
+Imports System.Text
 Imports Newtonsoft.Json.Linq
 Module display
     Public displayData As JObject
@@ -38,7 +39,7 @@ Module display
             uiFields = CType(displayInfo("ui_fields"), JObject)
         End If
 
-        ' Required Felder
+
         If displayInfo("required") IsNot Nothing Then
             For Each r In displayInfo("required")
                 Dim fieldName = r.ToString()
@@ -50,7 +51,7 @@ Module display
             Next
         End If
 
-        ' Optional Felder
+
         If displayInfo("optional") IsNot Nothing Then
             For Each o In displayInfo("optional")
                 Dim fieldName = o.ToString()
@@ -62,7 +63,6 @@ Module display
             Next
         End If
 
-        ' Verschachtelte Felder (nested_fields)
         If displayInfo("nested_fields") IsNot Nothing Then
             Dim nestedFields As JObject = CType(displayInfo("nested_fields"), JObject)
 
@@ -83,7 +83,7 @@ Module display
             Next
         End If
 
-        ' Info-Felder
+
         If displayInfo("info") IsNot Nothing Then
             For Each o In displayInfo("info")
                 AddInfoField(o.ToString(), targetPanel, yOffset)
@@ -92,62 +92,7 @@ Module display
 
 
 
-        If displayInfo("bus") IsNot Nothing Then
 
-            For Each o In displayInfo("bus")
-
-                Dim busValue As String = o.ToString().ToLower()
-                Dim targetTabPage As TabPage = Form1.TabPage3
-
-                Select Case busValue
-                    Case "onewire"
-                        Form1.GB_OneWire.Visible = True
-                        Form1.GB_I2C.Visible = False
-                        Form1.GB_SPI.Visible = False
-                        Form1.GB_Uart.Visible = False
-                        Form1.GB_OneWire.Location = GBLocation
-
-                    Case "i2c"
-                        Form1.GB_OneWire.Visible = False
-                        Form1.GB_I2C.Visible = True
-                        Form1.GB_SPI.Visible = False
-                        Form1.GB_Uart.Visible = False
-                        Form1.GB_I2C.Location = GBLocation
-
-                    Case "spi"
-                        Form1.GB_OneWire.Visible = False
-                        Form1.GB_I2C.Visible = False
-                        Form1.GB_SPI.Visible = True
-                        Form1.GB_Uart.Visible = False
-                        Form1.GB_SPI.Location = GBLocation
-
-                    Case "uart"
-                        Form1.GB_OneWire.Visible = False
-                        Form1.GB_I2C.Visible = False
-                        Form1.GB_SPI.Visible = False
-                        Form1.GB_Uart.Visible = True
-                        Form1.GB_Uart.Location = GBLocation
-
-                    Case "na"
-                        Form1.GB_OneWire.Visible = False
-                        Form1.GB_I2C.Visible = False
-                        Form1.GB_SPI.Visible = False
-                        Form1.GB_Uart.Visible = False
-                End Select
-
-                Form1.GB_OneWire.Parent = Nothing
-                targetTabPage.Controls.add(Form1.GB_OneWire)
-                Form1.GB_I2C.Location = GBLocation
-
-
-            Next
-        Else
-            Form1.GB_OneWire.Visible = False
-            Form1.GB_I2C.Visible = False
-            Form1.GB_SPI.Visible = False
-
-
-        End If
     End Sub
     Public Sub AddDisplayField(fieldName As String, isRequired As Boolean, targetPanel As Panel, ByRef yOffset As Integer, Optional fieldConfig As JObject = Nothing)
         Dim label As New Label With {
@@ -159,7 +104,7 @@ Module display
 
         Dim control As Control = Nothing
 
-        ' Standard: TextBox
+
         Dim ctrlType As String = If(fieldConfig IsNot Nothing AndAlso fieldConfig("type") IsNot Nothing,
                                 fieldConfig("type").ToString().ToLower(),
                                 "textbox")
@@ -175,6 +120,7 @@ Module display
                     CType(control, TextBox).Multiline = True
                     control.Height = 60
                 End If
+                AddHandler CType(control, TextBox).TextChanged, AddressOf ConfigControl_Changed
 
             Case "combobox"
                 control = New ComboBox With {
@@ -187,6 +133,7 @@ Module display
                     Dim items = fieldConfig("values").ToObject(Of List(Of String))
                     CType(control, ComboBox).Items.AddRange(items.ToArray())
                 End If
+                AddHandler CType(control, ComboBox).SelectedIndexChanged, AddressOf ConfigControl_Changed
 
             Case "numericupdown"
                 control = New NumericUpDown With {
@@ -200,6 +147,7 @@ Module display
                     .Maximum = If(fieldConfig?("max") IsNot Nothing, fieldConfig("max").ToObject(Of Decimal), 100)
                     .Increment = If(fieldConfig?("Step") IsNot Nothing, fieldConfig("Step").ToObject(Of Decimal), 1)
                 End With
+                AddHandler CType(control, NumericUpDown).TextChanged, AddressOf ConfigControl_Changed
 
             Case Else
                 ' Fallback: TextBox
@@ -208,6 +156,7 @@ Module display
                 .Location = New Point(150, yOffset),
                 .Width = 150
             }
+                AddHandler CType(control, TextBox).TextChanged, AddressOf ConfigControl_Changed
         End Select
 
         If control IsNot Nothing Then
@@ -216,6 +165,7 @@ Module display
         End If
         yOffset += 10
     End Sub
+
 
     Private Sub AddInfoField(fieldName As String, panel As Panel, ByRef yOffset As Integer)
         Dim lbl As New Label With {
@@ -228,7 +178,287 @@ Module display
         panel.Controls.Add(lbl)
     End Sub
 
+    Private Function CollectCurrentDisplayData() As (Platform As String, Parameters As String, Filters As String)
+        Try
+            Dim platform As String = ""
+            Dim parameterList As New List(Of String)
 
+
+            If Form1.CBB_DisplayGroup.SelectedItem IsNot Nothing AndAlso Form1.CBB_DisplayType.SelectedItem IsNot Nothing Then
+                Dim selectedGroup = Form1.CBB_DisplayGroup.SelectedItem.ToString()
+                Dim selectedDisplay = Form1.CBB_DisplayType.SelectedItem.ToString()
+
+                Dim jsonText = File.ReadAllText(Application.StartupPath & "\displays.json")
+                Dim jsonData = JObject.Parse(jsonText)
+
+                If jsonData.ContainsKey(selectedGroup) AndAlso jsonData(selectedGroup)(selectedDisplay) IsNot Nothing Then
+                    Dim displayinfo = jsonData(selectedGroup)(selectedDisplay)
+                    platform = displayinfo("platform")?.ToString()
+                End If
+            End If
+
+
+            For Each ctrl As Control In Form1.pnl_DisplayConfig.Controls
+                Dim value As String = ""
+                Dim fieldName As String = ""
+
+                If TypeOf ctrl Is TextBox Then
+                    Dim txt = CType(ctrl, TextBox)
+                    If txt.Name.StartsWith("TXT_") AndAlso Not String.IsNullOrWhiteSpace(txt.Text) Then
+                        fieldName = txt.Name.Substring(4) ' "TXT_" entfernen
+                        value = txt.Text
+                    End If
+
+                ElseIf TypeOf ctrl Is ComboBox Then
+                    Dim cmb = CType(ctrl, ComboBox)
+                    If cmb.Name.StartsWith("CMB_") AndAlso cmb.SelectedItem IsNot Nothing Then
+                        fieldName = cmb.Name.Substring(4) ' "CMB_" entfernen  
+                        value = cmb.SelectedItem.ToString()
+                    End If
+
+                ElseIf TypeOf ctrl Is NumericUpDown Then
+                    Dim num = CType(ctrl, NumericUpDown)
+                    If num.Name.StartsWith("NUM_") Then
+                        fieldName = num.Name.Substring(4) ' "NUM_" entfernen
+                        value = num.Value.ToString()
+                    End If
+                End If
+
+                If Not String.IsNullOrEmpty(fieldName) AndAlso Not String.IsNullOrEmpty(value) Then
+                    parameterList.Add($"{fieldName}={value}")
+                End If
+            Next
+
+
+            Dim parameters = String.Join(",", parameterList)
+
+
+            Dim filterString As String = ""
+
+            Return (platform, parameters, filterString)
+
+        Catch ex As Exception
+            Return ("", "", "# Fehler: " & ex.Message)
+        End Try
+    End Function
+    Private Sub UpdateYAMLPreview()
+        Try
+            Dim displayData = CollectCurrentDisplayData()
+
+            If String.IsNullOrEmpty(displayData.Platform) Then
+                Form1.RTB_yamlPreviewDisplay.Text = "# Display auswählen für Live Preview"
+                Return
+            End If
+
+            Dim sb As New StringBuilder()
+            sb.AppendLine("# Live Preview - Nur dieses Display:")
+            sb.AppendLine("display:")
+
+
+            WriteDisplayBlock(sb, displayData.Platform, displayData.Parameters, displayData.Filters)
+
+            Form1.RTB_yamlPreviewDisplay.Text = sb.ToString()
+
+        Catch ex As Exception
+            Form1.RTB_yamlPreviewDisplay.Text = "# Fehler in der Konfiguration:" & vbCrLf & ex.Message
+        End Try
+    End Sub
+    Private Sub ConfigControl_Changed(sender As Object, e As EventArgs)
+        UpdateYAMLPreview()
+    End Sub
+    Private Sub WriteDisplayBlock(sb As StringBuilder, platform As String, paramString As String, filterCellContent As String)
+        sb.AppendLine($"  - platform: {platform}")
+
+        ' Key-Value-Paare aus paramString
+        Dim flatDict As New Dictionary(Of String, String)
+        For Each part In paramString.Split(","c)
+            Dim keyVal = part.Trim().Split("="c, 2)
+            If keyVal.Length = 2 Then
+                flatDict(keyVal(0).Trim()) = keyVal(1).Trim()
+            End If
+        Next
+
+        ' Vorbereitung verschachtelte Felder
+        Dim nestedDict As New Dictionary(Of String, Dictionary(Of String, String))
+        Dim simpleKeys As New Dictionary(Of String, String)
+
+        ' Display-spezifische flache Keys
+        Dim flatKeys As New HashSet(Of String) From {
+       "address", "reset_pin", "cs_pin", "dc_pin", "busy_pin", "led_pin",
+       "model", "rotation", "contrast", "intensity", "measurement_duration",
+       "clk_pin", "dio_pin", "pin", "chipset", "num_leds", "rgb_order",
+       "max_refresh_rate", "color_correct"
+   }
+
+        ' Display-spezifische accuracy_decimals Fixups
+        Dim accuracyFixups = New Dictionary(Of String, Tuple(Of String, String)) From {
+       {"temperature_accuracy_decimals", Tuple.Create("temperature", "accuracy_decimals")},
+       {"humidity_accuracy_decimals", Tuple.Create("humidity", "accuracy_decimals")},
+       {"pressure_accuracy_decimals", Tuple.Create("pressure", "accuracy_decimals")}
+   }
+
+        For Each kvp In flatDict
+            Dim keyLower = kvp.Key.ToLower()
+
+            If accuracyFixups.ContainsKey(keyLower) Then
+                Dim target = accuracyFixups(keyLower)
+                If Not nestedDict.ContainsKey(target.Item1) Then nestedDict(target.Item1) = New Dictionary(Of String, String)
+                nestedDict(target.Item1)(target.Item2) = kvp.Value
+                Continue For
+            End If
+
+            If kvp.Key.Contains("_") AndAlso Not flatKeys.Contains(keyLower) Then
+                Dim parts = kvp.Key.Split("_"c)
+                If parts.Length >= 2 Then
+                    Dim group = String.Join("_", parts.Take(parts.Length - 1)).Trim()
+                    Dim subkey = parts.Last().Trim()
+                    If Not nestedDict.ContainsKey(group) Then nestedDict(group) = New Dictionary(Of String, String)
+                    nestedDict(group)(subkey) = kvp.Value
+                Else
+                    simpleKeys(kvp.Key) = kvp.Value
+                End If
+            Else
+                simpleKeys(kvp.Key) = kvp.Value
+            End If
+        Next
+
+        ' Spezielle Display-Behandlungen
+
+        ' Dimensions für LCD Displays
+        If nestedDict.ContainsKey("dimensions") Then
+            sb.AppendLine("    dimensions:")
+            For Each inner In nestedDict("dimensions")
+                If inner.Key = "columns" OrElse inner.Key = "rows" Then
+                    sb.AppendLine($"      {inner.Key}: {inner.Value}")
+                End If
+            Next
+            nestedDict.Remove("dimensions")
+        End If
+
+        ' Color Correct für LEDs (Array-Format)
+        If simpleKeys.ContainsKey("color_correct") Then
+            sb.AppendLine($"    color_correct: [{simpleKeys("color_correct")}]")
+            simpleKeys.Remove("color_correct")
+        End If
+
+        ' Rotation (ohne °-Zeichen)
+        If simpleKeys.ContainsKey("rotation") Then
+            Dim rotValue = simpleKeys("rotation").Replace("°", "")
+            sb.AppendLine($"    rotation: {rotValue}")
+            simpleKeys.Remove("rotation")
+        End If
+
+        ' Einheiten für Display-Parameter
+        Dim unit_percent = New HashSet(Of String) From {"contrast", "intensity"}
+        Dim unit_ms = New HashSet(Of String) From {"measurement_duration"}
+
+        ' Flache Felder schreiben
+        For Each kvp In simpleKeys
+            Dim key = kvp.Key
+            Dim val = kvp.Value
+
+            ' Anführungszeichen für String-Werte
+            If key = "model" OrElse key = "chipset" OrElse key = "rgb_order" Then
+                sb.AppendLine($"    {key}: ""{val}""")
+            ElseIf unit_percent.Contains(key) Then
+                sb.AppendLine($"    {key}: {val}%")
+            ElseIf unit_ms.Contains(key) Then
+                sb.AppendLine($"    {key}: {val}ms")
+            Else
+                sb.AppendLine($"    {key}: {val}")
+            End If
+        Next
+
+        ' Filter als JSON auswerten
+        Dim filterData As JObject = Nothing
+        If Not String.IsNullOrWhiteSpace(filterCellContent) Then
+            Try
+                filterData = JObject.Parse(filterCellContent)
+            Catch ex As Exception
+                sb.AppendLine("    # Fehler beim Parsen der Filterkonfiguration")
+            End Try
+        End If
+
+        ' Nested Felder schreiben (für komplexere Displays)
+        For Each outer In nestedDict
+            sb.AppendLine($"    {outer.Key}:")
+            For Each inner In outer.Value
+                sb.AppendLine($"      {inner.Key}: {inner.Value}")
+            Next
+
+            ' Filter für diesen Block?
+            If filterData IsNot Nothing AndAlso filterData.ContainsKey(outer.Key) Then
+                sb.AppendLine("      filters:")
+                For Each f In CType(filterData(outer.Key), JObject).Properties()
+                    Dim val = f.Value.ToString().Trim()
+                    If val.Contains(Environment.NewLine) Then
+                        sb.AppendLine($"        - {f.Name}:")
+                        For Each line In val.Split({Environment.NewLine}, StringSplitOptions.RemoveEmptyEntries)
+                            sb.AppendLine($"            {line.Trim()}")
+                        Next
+                    Else
+                        sb.AppendLine($"        - {f.Name}: {val}")
+                    End If
+                Next
+            End If
+        Next
+
+        ' Lambda-Filter für Displays (meist global)
+        If filterData IsNot Nothing AndAlso filterData.ContainsKey("global") Then
+            Dim globalFilters = CType(filterData("global"), JObject)
+
+            ' Lambda separat behandeln (mehrzeilig)
+            If globalFilters.ContainsKey("lambda") Then
+                sb.AppendLine("    lambda: |-")
+                Dim lambdaContent = globalFilters("lambda").ToString().Trim()
+                For Each line In lambdaContent.Split({Environment.NewLine}, StringSplitOptions.RemoveEmptyEntries)
+                    sb.AppendLine($"      {line.Trim()}")
+                Next
+            End If
+
+            ' Andere globale Filter
+            For Each f In globalFilters.Properties()
+                If f.Name <> "lambda" Then
+                    Dim val = f.Value.ToString().Trim()
+                    If val.Contains(Environment.NewLine) Then
+                        sb.AppendLine($"    {f.Name}: |-")
+                        For Each line In val.Split({Environment.NewLine}, StringSplitOptions.RemoveEmptyEntries)
+                            sb.AppendLine($"      {line.Trim()}")
+                        Next
+                    Else
+                        sb.AppendLine($"    {f.Name}: {val}")
+                    End If
+                End If
+            Next
+        End If
+
+        sb.AppendLine()
+    End Sub
+
+    Public Sub ExportDisplayToYaml(sb As StringBuilder, dgv As DataGridView)
+        If dgv.Rows.Count = 0 Then Exit Sub
+
+        Dim displayExist As Boolean = False
+
+        For Each row As DataGridViewRow In dgv.Rows
+            If row.IsNewRow Then Continue For
+
+            Dim platform = row.Cells("Plattform").Value?.ToString()?.Trim()
+            Dim paramString = row.Cells("Parameter").Value?.ToString()?.Trim()
+            Dim filterString = row.Cells("Filter").Value?.ToString?.Trim()
+
+            If String.IsNullOrEmpty(platform) Then Continue For
+
+
+            If Not displayExist Then
+                sb.AppendLine("display:")
+                displayExist = True
+            End If
+
+
+            WriteDisplayBlock(sb, platform, paramString, filterString)
+        Next
+    End Sub
     Public Sub AddDisplayToGrid(displayGroup As String, displayType As String, displayInfo As JObject, paneldisplay As Panel, dgv As DataGridView)
 
 
@@ -269,9 +499,9 @@ Module display
                     ElseIf TypeOf ctrl Is ComboBox Then
                         pinValue = CType(ctrl, ComboBox).Text.Trim()
                     End If
-                    MsgBox(Form1.clickedRow.ToString)
+
                     If Form1.clickedRow = -1 Then
-                        If Not String.IsNullOrEmpty(pinValue) AndAlso IsPinInUse(pinValue, dgv) Then
+                        If Not String.IsNullOrEmpty(pinValue) AndAlso helper.pinInUse(pinValue) Then
                             MessageBox.Show($"Der Pin '{pinValue}' wird bereits von einem anderen Sensor verwendet.", "Pin-Konflikt", MessageBoxButtons.OK, MessageBoxIcon.Warning)
                             Return
                         End If
@@ -328,6 +558,7 @@ Module display
                 row.Cells(3).Value = ""
                 row.Cells(4).Value = String.Join(",", parameter)
                 MsgBox("Sensor wurde gespeichert")
+                Form1.clickedRow = -1
 
             Catch ex As Exception
 
@@ -339,35 +570,6 @@ Module display
 
         Form1.clickedRow = -1
     End Sub
-
-
-
-    Private Function IsPinInUse(pin As String, dgv As DataGridView) As Boolean
-        For Each row As DataGridViewRow In dgv.Rows
-            If row.IsNewRow Then Continue For
-            Dim paramString As String = row.Cells("Parameter").Value?.ToString()
-            If String.IsNullOrWhiteSpace(paramString) Then Continue For
-
-            If paramString.Contains($"pin={pin}") OrElse
-           paramString.Contains($"trigger_pin={pin}") OrElse
-           paramString.Contains($"echo_pin={pin}") OrElse
-           paramString.Contains($"cs_pin={pin}") Then
-                Return True
-            End If
-        Next
-        Return False
-    End Function
-
-
-
-
-
-
-
-
-
-
-
 
 
 End Module

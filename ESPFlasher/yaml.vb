@@ -7,7 +7,7 @@ Module yaml
     Dim rawName As String = Form1.Txt_ESPName.Text.Trim()
     Dim name As String = rawName.ToLower().Replace(" ", "-")
     Public yamlPath As String = $"build\{name}\{name}.yaml"
-    Public Sub generateYaml(createbin As Boolean)
+    Public Sub generateYaml(createbin As Boolean, ByRef ota As Boolean)
 
 
         Dim writtenPlatforms As New HashSet(Of String)(StringComparer.OrdinalIgnoreCase)
@@ -123,16 +123,38 @@ Module yaml
         End If
 
 
+
+        ' Oder einfacher - immer hinzufügen wenn Displays vorhanden:
+        If Form1.DGV_Display.Rows.Count > 0 Then
+            sb.AppendLine("font:")
+            sb.AppendLine("  - file: ""gfonts://Roboto""")
+            sb.AppendLine("    id: roboto")
+            sb.AppendLine("    size: 12")
+            sb.AppendLine()
+        End If
+
+
         ExportSensorsToYaml(sb, Form1.DGV_Sensors)
+        ExportDisplayToYaml(sb, Form1.DGV_Display)
+
 
 
         ' Ordner anlegen und Datei schreiben
         Directory.CreateDirectory($"build\{name}")
         File.WriteAllText(yamlPath, sb.ToString(), Encoding.UTF8)
         GenerateJsonFromDGV(Form1.DGV_Sensors)
+        GenerateJsonFromDisplayDGV(Form1.DGV_Display)
         GenerateJsonFromGlobalBus()
+        If ota Then
+            Dim otaForm As New OTA
+            otaForm.Yamlpath = yamlPath
+            If Not String.IsNullOrEmpty(Form1.Txt_OTAPassword.Text) Then
+                otaForm.otaPassword = Form1.Txt_OTAPassword.Text
+            End If
+            otaForm.ShowDialog()
+            Exit Sub
+        End If
 
-        ' Entweder kompilieren oder öffnen
         If createbin Then
             Form1.generateBin(yamlPath)
         Else
@@ -166,6 +188,32 @@ Module yaml
         Directory.CreateDirectory(Path.GetDirectoryName(jsonPath))
         File.WriteAllText(jsonPath, json, Encoding.UTF8)
 
+    End Sub
+    Public Sub GenerateJsonFromDisplayDGV(dgv As DataGridView)
+        Dim entries As New List(Of DGVEntrie)()
+        For i = 0 To dgv.Rows.Count - 1
+            If Not dgv.Rows(i).IsNewRow Then
+
+
+                Dim newEntry As New DGVEntrie() With {
+                .group = If(dgv.Rows(i).Cells(0).Value?.ToString(), ""),
+                .type = If(dgv.Rows(i).Cells(1).Value?.ToString(), ""),
+                .platform = If(dgv.Rows(i).Cells(2).Value?.ToString(), ""),
+                .pins = If(dgv.Rows(i).Cells(3).Value?.ToString(), ""),
+                .parameters = If(dgv.Rows(i).Cells(4).Value?.ToString(), ""),
+                .filter = If(dgv.Rows(i).Cells(5).Value?.ToString(), "")
+            }
+                entries.Add(newEntry)
+            End If
+
+
+        Next
+
+
+        Dim json As String = Newtonsoft.Json.JsonConvert.SerializeObject(entries, Newtonsoft.Json.Formatting.Indented)
+        Dim jsonPath As String = $"build\{Form1.Txt_ESPName.Text.Trim().ToLower().Replace(" ", "-")}\displays.json"
+        Directory.CreateDirectory(Path.GetDirectoryName(jsonPath))
+        File.WriteAllText(jsonPath, json, Encoding.UTF8)
     End Sub
 
     Public Sub GenerateJsonFromGlobalBus()
@@ -213,16 +261,16 @@ Module yaml
         Form1.uartTx = globalBus.uarttx
         Form1.uartBaudrate = globalBus.uartbaudrate
 
-        Form1.Txt_OneWireBusID.Text = Form1.OneWireID
-        Form1.Txt_OneWireGPIOPin.Text = Form1.OneWirePIN
-        Form1.txt_i2csda.Text = Form1.i2cSda
-        Form1.txt_i2cscl.Text = Form1.i2cScl
-        Form1.CB_i2cScan.Checked = Form1.i2cScan
-        Form1.txt_spiclk.Text = Form1.spiclk
-        Form1.txt_spimosi.Text = Form1.spimosi
-        Form1.txt_spimiso.Text = Form1.spimiso
-        Form1.txt_UartRx.Text = Form1.uartRx
-        Form1.txt_UartTx.Text = Form1.uartTx
+        Bussettings.Txt_OneWireBusID.Text = Form1.OneWireID
+        Bussettings.Txt_OneWireGPIOPin.Text = Form1.OneWirePIN
+        Bussettings.txt_i2csda.Text = Form1.i2cSda
+        Bussettings.txt_i2cscl.Text = Form1.i2cScl
+        Bussettings.CB_i2cScan.Checked = Form1.i2cScan
+        Bussettings.txt_spiclk.Text = Form1.spiclk
+        Bussettings.txt_spimosi.Text = Form1.spimosi
+        Bussettings.txt_spimiso.Text = Form1.spimiso
+        Bussettings.txt_UartRx.Text = Form1.uartRx
+        Bussettings.txt_UartTx.Text = Form1.uartTx
 
 
 
@@ -238,6 +286,21 @@ Module yaml
     Function LoadDGVFromJson(dgv As DataGridView) As Task
 
         Dim jsonPath As String = $"build\{Form1.Txt_ESPName.Text.Trim().ToLower().Replace(" ", "-")}\sensors.json"
+        If Not File.Exists(jsonPath) Then
+            Return Task.CompletedTask
+            Exit Function
+        End If
+        Dim json As String = File.ReadAllText(jsonPath, Encoding.UTF8)
+        Dim entries As List(Of DGVEntrie) = Newtonsoft.Json.JsonConvert.DeserializeObject(Of List(Of DGVEntrie))(json)
+        dgv.Rows.Clear()
+        For Each entry In entries
+            dgv.Rows.Add(entry.group, entry.type, entry.platform, entry.pins, entry.parameters, entry.filter)
+        Next
+        Return Task.CompletedTask
+    End Function
+    Function LoadDGVDisplayFromJson(dgv As DataGridView) As Task
+
+        Dim jsonPath As String = $"build\{Form1.Txt_ESPName.Text.Trim().ToLower().Replace(" ", "-")}\displays.json"
         If Not File.Exists(jsonPath) Then
             Return Task.CompletedTask
             Exit Function

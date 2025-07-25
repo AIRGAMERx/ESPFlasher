@@ -97,58 +97,6 @@ Module sensors
 
 
 
-        If sensorInfo("bus") IsNot Nothing Then
-
-            For Each o In sensorInfo("bus")
-
-                Dim busValue As String = o.ToString().ToLower()
-
-
-                Select Case busValue
-                    Case "onewire"
-                        Form1.GB_OneWire.Visible = True
-                        Form1.GB_I2C.Visible = False
-                        Form1.GB_SPI.Visible = False
-                        Form1.GB_Uart.Visible = False
-                        Form1.GB_OneWire.Location = GBLocation
-
-                    Case "i2c"
-                        Form1.GB_OneWire.Visible = False
-                        Form1.GB_I2C.Visible = True
-                        Form1.GB_SPI.Visible = False
-                        Form1.GB_Uart.Visible = False
-                        Form1.GB_I2C.Location = GBLocation
-
-                    Case "spi"
-                        Form1.GB_OneWire.Visible = False
-                        Form1.GB_I2C.Visible = False
-                        Form1.GB_SPI.Visible = True
-                        Form1.GB_Uart.Visible = False
-                        Form1.GB_SPI.Location = GBLocation
-
-                    Case "uart"
-                        Form1.GB_OneWire.Visible = False
-                        Form1.GB_I2C.Visible = False
-                        Form1.GB_SPI.Visible = False
-                        Form1.GB_Uart.Visible = True
-                        Form1.GB_Uart.Location = GBLocation
-
-                    Case "na"
-                        Form1.GB_OneWire.Visible = False
-                        Form1.GB_I2C.Visible = False
-                        Form1.GB_SPI.Visible = False
-                        Form1.GB_Uart.Visible = False
-                End Select
-
-
-            Next
-        Else
-            Form1.GB_OneWire.Visible = False
-            Form1.GB_I2C.Visible = False
-            Form1.GB_SPI.Visible = False
-
-
-        End If
     End Sub
 
 
@@ -179,6 +127,8 @@ Module sensors
                     CType(control, TextBox).Multiline = True
                     control.Height = 60
                 End If
+                AddHandler CType(control, TextBox).TextChanged, AddressOf ConfigControl_Changed
+
 
             Case "combobox"
                 control = New ComboBox With {
@@ -191,6 +141,7 @@ Module sensors
                     Dim items = fieldConfig("values").ToObject(Of List(Of String))
                     CType(control, ComboBox).Items.AddRange(items.ToArray())
                 End If
+                AddHandler CType(control, ComboBox).SelectedIndexChanged, AddressOf ConfigControl_Changed
 
             Case "numericupdown"
                 control = New NumericUpDown With {
@@ -204,7 +155,7 @@ Module sensors
                     .Maximum = If(fieldConfig?("max") IsNot Nothing, fieldConfig("max").ToObject(Of Decimal), 100)
                     .Increment = If(fieldConfig?("Step") IsNot Nothing, fieldConfig("Step").ToObject(Of Decimal), 1)
                 End With
-
+                AddHandler CType(control, NumericUpDown).TextChanged, AddressOf ConfigControl_Changed
             Case Else
                 ' Fallback: TextBox
                 control = New TextBox With {
@@ -212,6 +163,7 @@ Module sensors
                 .Location = New Point(150, yOffset),
                 .Width = 150
             }
+                AddHandler CType(control, TextBox).TextChanged, AddressOf ConfigControl_Changed
         End Select
 
         If control IsNot Nothing Then
@@ -220,7 +172,92 @@ Module sensors
         End If
         yOffset += 10
     End Sub
+    Private Function CollectCurrentSensorData() As (Platform As String, Parameters As String, Filters As String)
+        Try
+            Dim platform As String = ""
+            Dim parameterList As New List(Of String)
 
+
+            If Form1.CBB_SensoreGroup.SelectedItem IsNot Nothing AndAlso Form1.CBB_SensorType.SelectedItem IsNot Nothing Then
+                Dim selectedGroup = Form1.CBB_SensoreGroup.SelectedItem.ToString()
+                Dim selectedSensor = Form1.CBB_SensorType.SelectedItem.ToString()
+
+                Dim jsonText = File.ReadAllText(Application.StartupPath & "\sensors.json")
+                Dim jsonData = JObject.Parse(jsonText)
+
+                If jsonData.ContainsKey(selectedGroup) AndAlso jsonData(selectedGroup)(selectedSensor) IsNot Nothing Then
+                    Dim sensorInfo = jsonData(selectedGroup)(selectedSensor)
+                    platform = sensorInfo("platform")?.ToString()
+                End If
+            End If
+
+
+            For Each ctrl As Control In Form1.pnl_SensorConfig.Controls
+                Dim value As String = ""
+                Dim fieldName As String = ""
+
+                If TypeOf ctrl Is TextBox Then
+                    Dim txt = CType(ctrl, TextBox)
+                    If txt.Name.StartsWith("TXT_") AndAlso Not String.IsNullOrWhiteSpace(txt.Text) Then
+                        fieldName = txt.Name.Substring(4) ' "TXT_" entfernen
+                        value = txt.Text
+                    End If
+
+                ElseIf TypeOf ctrl Is ComboBox Then
+                    Dim cmb = CType(ctrl, ComboBox)
+                    If cmb.Name.StartsWith("CMB_") AndAlso cmb.SelectedItem IsNot Nothing Then
+                        fieldName = cmb.Name.Substring(4) ' "CMB_" entfernen  
+                        value = cmb.SelectedItem.ToString()
+                    End If
+
+                ElseIf TypeOf ctrl Is NumericUpDown Then
+                    Dim num = CType(ctrl, NumericUpDown)
+                    If num.Name.StartsWith("NUM_") Then
+                        fieldName = num.Name.Substring(4) ' "NUM_" entfernen
+                        value = num.Value.ToString()
+                    End If
+                End If
+
+                If Not String.IsNullOrEmpty(fieldName) AndAlso Not String.IsNullOrEmpty(value) Then
+                    parameterList.Add($"{fieldName}={value}")
+                End If
+            Next
+
+
+            Dim parameters = String.Join(",", parameterList)
+
+
+            Dim filterString As String = ""
+
+            Return (platform, parameters, filterString)
+
+        Catch ex As Exception
+            Return ("", "", "# Fehler: " & ex.Message)
+        End Try
+    End Function
+    Private Sub UpdateYAMLPreview()
+        Try
+
+            Dim sensorData = CollectCurrentSensorData()
+
+
+            Dim sb As New StringBuilder()
+            sb.AppendLine("# Live Preview - Nur dieser Sensor:")
+            sb.AppendLine("sensor:")
+
+
+            WriteSensorBlock(sb, sensorData.Platform, sensorData.Parameters, sensorData.Filters)
+
+
+            Form1.RTB_yamlPreviewSensor.Text = sb.ToString()
+
+        Catch ex As Exception
+            Form1.RTB_yamlPreviewSensor.Text = "# Fehler in der Konfiguration:" & vbCrLf & ex.Message
+        End Try
+    End Sub
+    Private Sub ConfigControl_Changed(sender As Object, e As EventArgs)
+        UpdateYAMLPreview()
+    End Sub
     Private Sub AddInfoField(fieldName As String, panel As Panel, ByRef yOffset As Integer)
         Dim lbl As New Label With {
         .Text = fieldName,
@@ -232,21 +269,7 @@ Module sensors
         panel.Controls.Add(lbl)
     End Sub
 
-    Private Function IsPinInUse(pin As String, dgv As DataGridView) As Boolean
-        For Each row As DataGridViewRow In dgv.Rows
-            If row.IsNewRow Then Continue For
-            Dim paramString As String = row.Cells("Parameter").Value?.ToString()
-            If String.IsNullOrWhiteSpace(paramString) Then Continue For
 
-            If paramString.Contains($"pin={pin}") OrElse
-           paramString.Contains($"trigger_pin={pin}") OrElse
-           paramString.Contains($"echo_pin={pin}") OrElse
-           paramString.Contains($"cs_pin={pin}") Then
-                Return True
-            End If
-        Next
-        Return False
-    End Function
     Public Sub AddSensorToGrid(sensorGroup As String, sensorType As String, sensorInfo As JObject, panelSensor As Panel, dgv As DataGridView)
 
 
@@ -289,7 +312,7 @@ Module sensors
                     End If
                     MsgBox(Form1.clickedRow.ToString)
                     If Form1.clickedRow = -1 Then
-                        If Not String.IsNullOrEmpty(pinValue) AndAlso IsPinInUse(pinValue, dgv) Then
+                        If Not String.IsNullOrEmpty(pinValue) AndAlso helper.pinInUse(pinValue) Then
                             MessageBox.Show($"Der Pin '{pinValue}' wird bereits von einem anderen Sensor verwendet.", "Pin-Konflikt", MessageBoxButtons.OK, MessageBoxIcon.Warning)
                             Return
                         End If
@@ -346,6 +369,7 @@ Module sensors
                 row.Cells(3).Value = ""
                 row.Cells(4).Value = String.Join(",", parameter)
                 MsgBox("Sensor wurde gespeichert")
+                Form1.clickedRow = -1
 
             Catch ex As Exception
 
@@ -358,62 +382,6 @@ Module sensors
         Form1.clickedRow = -1
     End Sub
 
-
-    Public Function ParseSensorsFromGrid(dgv As DataGridView) As List(Of SensorExportModel)
-        Dim grouped As New Dictionary(Of String, SensorExportModel)
-
-        For Each row As DataGridViewRow In dgv.Rows
-            If row.IsNewRow Then Continue For
-
-            Dim plattform = row.Cells("Plattform").Value?.ToString()?.Trim()
-            If String.IsNullOrEmpty(plattform) Then Continue For
-
-            If Not grouped.ContainsKey(plattform) Then
-                grouped(plattform) = New SensorExportModel With {
-                .Plattform = plattform,
-                .GlobalPins = New Dictionary(Of String, String),
-                .SensorEntries = New List(Of Dictionary(Of String, String))
-            }
-            End If
-
-            ' Pins (auch globale)
-            Dim pinsDict As New Dictionary(Of String, String)
-            Dim pinsRaw = row.Cells("Pins").Value?.ToString()
-            If Not String.IsNullOrEmpty(pinsRaw) Then
-                For Each p In pinsRaw.Split(","c)
-                    Dim kv = p.Split("="c)
-                    If kv.Length = 2 Then
-                        Dim key = kv(0).Trim()
-                        Dim val = kv(1).Trim()
-                        pinsDict(key) = val
-
-                        ' Prüfe auf global bekannte Pins
-                        If key.Contains("sda") Or key.Contains("scl") Or key.Contains("dallas_pin") Or key.Contains("spi_") Then
-                            If Not grouped(plattform).GlobalPins.ContainsKey(key) Then
-                                grouped(plattform).GlobalPins.Add(key, val)
-                            End If
-                        End If
-                    End If
-                Next
-            End If
-
-            ' Parameter (optional)
-            Dim paramDict As New Dictionary(Of String, String)(pinsDict)
-            Dim paramRaw = row.Cells("Parameter").Value?.ToString()
-            If Not String.IsNullOrEmpty(paramRaw) Then
-                For Each p In paramRaw.Split(","c)
-                    Dim kv = p.Split("="c)
-                    If kv.Length = 2 Then
-                        paramDict(kv(0).Trim()) = kv(1).Trim()
-                    End If
-                Next
-            End If
-
-            grouped(plattform).SensorEntries.Add(paramDict)
-        Next
-
-        Return grouped.Values.ToList()
-    End Function
     Public Sub ExportSensorsToYaml(sb As StringBuilder, dgv As DataGridView)
         If dgv.Rows.Count = 0 Then Exit Sub
 
@@ -440,61 +408,6 @@ Module sensors
     End Sub
 
 
-    Public Function KeyValuePairsFun(rowIndex As Integer, dgv As DataGridView) As Dictionary(Of String, String)
-        Dim dict As New Dictionary(Of String, String)
-        Dim completeParams As String = dgv.Rows(rowIndex).Cells(3).Value?.ToString()
-        If String.IsNullOrWhiteSpace(completeParams) Then Return dict
-        For Each part In completeParams.Split(","c)
-            Dim keyVal = part.Trim().Split("="c, 2)
-            If keyVal.Length = 2 Then dict(keyVal(0).Trim().ToLower()) = keyVal(1).Trim()
-        Next
-        Return dict
-    End Function
-
-    Private Function BuildParamTree(paramString As String) As Dictionary(Of String, Object)
-        Dim root As New Dictionary(Of String, Object)(StringComparer.OrdinalIgnoreCase)
-
-        If String.IsNullOrWhiteSpace(paramString) Then Return root
-
-        For Each part In paramString.Split(","c)
-            Dim kv = part.Split("="c, 2)
-            If kv.Length <> 2 Then Continue For
-
-            Dim rawKey = kv(0).Trim()
-            Dim rawVal = kv(1).Trim()
-
-            Dim path = rawKey.Split("."c)
-            Dim node = root
-
-            For i = 0 To path.Length - 1
-                Dim key = path(i).Trim()
-                Dim isLeaf = (i = path.Length - 1)
-
-                If isLeaf Then
-                    node(key) = rawVal
-                Else
-                    If Not node.ContainsKey(key) OrElse Not TypeOf node(key) Is Dictionary(Of String, Object) Then
-                        node(key) = New Dictionary(Of String, Object)(StringComparer.OrdinalIgnoreCase)
-                    End If
-                    node = CType(node(key), Dictionary(Of String, Object))
-                End If
-            Next
-        Next
-
-        Return root
-    End Function
-    Private Sub WriteYamlNode(sb As StringBuilder, level As Integer, key As String, value As Object)
-        Dim indent = New String(" "c, level * 2)
-
-        If TypeOf value Is String Then
-            sb.AppendLine($"{indent}{key}: {value}")
-        ElseIf TypeOf value Is Dictionary(Of String, Object) Then
-            sb.AppendLine($"{indent}{key}:")
-            For Each kvp In CType(value, Dictionary(Of String, Object))
-                WriteYamlNode(sb, level + 1, kvp.Key, kvp.Value)
-            Next
-        End If
-    End Sub
     Private Sub WriteSensorBlock(sb As StringBuilder, platform As String, paramString As String, filterCellContent As String)
         sb.AppendLine($"  - platform: {platform}")
 
@@ -671,115 +584,5 @@ Public Class SensorExportModel
     Public Property GlobalPins As Dictionary(Of String, String)
     Public Property SensorEntries As List(Of Dictionary(Of String, String))
 End Class
-#Region "GPIO"
-Public Class DS18B20Model
-    Public Property name As String
-    Public Property platform As String
-    Public Property adress As String
-    Public Property onewireid As String
-    Public Property update_interval
 
-End Class
-
-
-Public Class DHT
-    Public Property platform As String
-    Public Property pin As String
-    Public Property tempname As String
-    Public Property humname As String
-    Public Property update_interval As String
-    Public Property model As String
-End Class
-
-Public Class HCSR04
-    Public Property platform As String
-    Public Property trigger As String
-    Public Property echo As String
-    Public Property name As String
-    Public Property timeout As String
-    Public Property update_interval As String
-    Public Property pulse_time As String
-    Public Property id As String
-
-End Class
-#End Region
-#Region "I2C"
-
-
-Public Class BMP280
-    Public Property platform As String
-    Public Property tempname As String
-    Public Property tempoversampling As String
-    Public Property pressurename As String
-    Public Property pressuroversampling As String
-    Public Property adress As String
-    Public Property update_interval As String
-
-
-End Class
-
-Public Class BME280
-    Public Property platform As String
-    Public Property tempname As String
-    Public Property pressurename As String
-    Public Property humidityname As String
-    Public Property adress As String
-    Public Property update_interval As String
-End Class
-
-Public Class BH1750
-    Public Property platform As String
-    Public Property name As String
-    Public Property adress As String
-    Public Property update_interval As String
-
-End Class
-
-Public Class SHT3XD
-    Public Property platform As String
-    Public Property tempname As String
-    Public Property humidityname As String
-    Public Property adress As String
-    Public Property update_interval As String
-
-End Class
-
-Public Class INA219
-
-    Public Property platform As String
-    Public Property adress As String
-    Public Property shunt_resistance As String
-    Public Property currentname As String
-    Public Property powername As String
-    Public Property bus_voltagename As String
-    Public Property shunt_voltagename As String
-    Public Property max_voltage As String
-    Public Property max_current As String
-    Public Property update_interval As String
-
-End Class
-#End Region
-#Region "SPI"
-Public Class MAX6675
-    Public Property platform As String
-    Public Property cs As String
-    Public Property name As String
-    Public Property update_interval As String
-
-End Class
-
-Public Class MAX31855
-    Public Property platform As String
-    Public Property cs As String
-    Public Property name As String
-    Public Property update_interval As String
-
-End Class
-
-Public Class InternalSensor
-    Public Property platform As String
-    Public Property name As String
-    Public Property update_interval As String
-End Class
-#End Region
 

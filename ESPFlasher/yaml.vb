@@ -136,6 +136,7 @@ Module yaml
 
         ExportSensorsToYaml(sb, Form1.DGV_Sensors)
         ExportDisplayToYaml(sb, Form1.DGV_Display)
+        ExportTemplateToYaml(sb, Form1.DGV_Templates)
 
 
 
@@ -144,6 +145,7 @@ Module yaml
         File.WriteAllText(yamlPath, sb.ToString(), Encoding.UTF8)
         GenerateJsonFromDGV(Form1.DGV_Sensors)
         GenerateJsonFromDisplayDGV(Form1.DGV_Display)
+        GenerateJsonFromTemplatesDGV(Form1.DGV_Templates)
         GenerateJsonFromGlobalBus()
         If ota Then
             Dim otaForm As New OTA
@@ -216,6 +218,34 @@ Module yaml
         File.WriteAllText(jsonPath, json, Encoding.UTF8)
     End Sub
 
+    Public Sub GenerateJsonFromTemplatesDGV(dgv As DataGridView)
+        Dim entries As New List(Of DGVEntrie)()
+        For i = 0 To dgv.Rows.Count - 1
+            If Not dgv.Rows(i).IsNewRow Then
+
+
+                Dim newEntry As New DGVEntrie() With {
+                .group = If(dgv.Rows(i).Cells(0).Value?.ToString(), ""),
+                .type = If(dgv.Rows(i).Cells(1).Value?.ToString(), ""),
+                .platform = If(dgv.Rows(i).Cells(2).Value?.ToString(), ""),
+                .pins = If(dgv.Rows(i).Cells(3).Value?.ToString(), ""),
+                .parameters = If(dgv.Rows(i).Cells(4).Value?.ToString(), ""),
+                .filter = If(dgv.Rows(i).Cells(5).Value?.ToString(), ""),
+                .sensorclass = If(dgv.Rows(i).Cells(6).Value?.ToString(), "")
+            }
+                entries.Add(newEntry)
+            End If
+
+
+        Next
+
+
+        Dim json As String = Newtonsoft.Json.JsonConvert.SerializeObject(entries, Newtonsoft.Json.Formatting.Indented)
+        Dim jsonPath As String = $"build\{Form1.Txt_ESPName.Text.Trim().ToLower().Replace(" ", "-")}\template.json"
+        Directory.CreateDirectory(Path.GetDirectoryName(jsonPath))
+        File.WriteAllText(jsonPath, json, Encoding.UTF8)
+    End Sub
+
     Public Sub GenerateJsonFromGlobalBus()
         Dim globalBus As New GlobalBus() With {
             .gpiopin = Form1.OneWirePIN,
@@ -272,12 +302,6 @@ Module yaml
         Bussettings.txt_UartRx.Text = Form1.uartRx
         Bussettings.txt_UartTx.Text = Form1.uartTx
 
-
-
-
-
-
-
         Return Task.CompletedTask
     End Function
 
@@ -310,6 +334,22 @@ Module yaml
         dgv.Rows.Clear()
         For Each entry In entries
             dgv.Rows.Add(entry.group, entry.type, entry.platform, entry.pins, entry.parameters, entry.filter)
+        Next
+        Return Task.CompletedTask
+    End Function
+
+    Function LoadDGVTemplatesFromJson(dgv As DataGridView) As Task
+
+        Dim jsonPath As String = $"build\{Form1.Txt_ESPName.Text.Trim().ToLower().Replace(" ", "-")}\templates.json"
+        If Not File.Exists(jsonPath) Then
+            Return Task.CompletedTask
+            Exit Function
+        End If
+        Dim json As String = File.ReadAllText(jsonPath, Encoding.UTF8)
+        Dim entries As List(Of DGVEntrie) = Newtonsoft.Json.JsonConvert.DeserializeObject(Of List(Of DGVEntrie))(json)
+        dgv.Rows.Clear()
+        For Each entry In entries
+            dgv.Rows.Add(entry.group, entry.type, entry.platform, entry.pins, entry.parameters, entry.filter, entry.sensorclass)
         Next
         Return Task.CompletedTask
     End Function
@@ -456,6 +496,7 @@ Public Class DGVEntrie
     Public Property pins As String
     Public Property parameters As String
     Public Property filter As String
+    Public Property sensorclass As String
 
 End Class
 

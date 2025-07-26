@@ -35,6 +35,7 @@ Public Class Form1
 
 
     Async Sub Form1_Load(sender As Object, e As EventArgs) Handles MyBase.Load
+        System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance)
         Await Init()
 
 
@@ -95,8 +96,11 @@ Public Class Form1
             UpdateStatus(status, "Lade Display-Daten...")
             Await LoadDisplayData()
 
+            UpdateStatus(status, "Lade Template-Daten...")
+            Await LoadTemplateData()
+
             UpdateStatus(status, "Setze DataGridView...")
-            Await SetDGVSensors()
+            Await SetDGV()
 
             UpdateStatus(status, "Suche ESP...")
             Await AutoDetectESP()
@@ -361,6 +365,7 @@ Public Class Form1
                                                    Await LoadYaml(yamlPath)
                                                    Await LoadDGVFromJson(DGV_Sensors)
                                                    Await LoadDGVDisplayFromJson(DGV_Display)
+                                                   Await LoadDGVTemplatesFromJson(DGV_Templates)
                                                    Await LoadGlobalBusFromJson()
 
                                                Catch ex As Exception
@@ -425,8 +430,6 @@ Public Class Form1
 
     Private Sub CBB_SensorType_SelectedIndexChanged(sender As Object, e As EventArgs) Handles CBB_SensorType.SelectedIndexChanged
 
-
-
         Dim selectedGroup = CStr(CBB_SensoreGroup.SelectedItem)
         Dim selectedSensor = CStr(CBB_SensorType.SelectedItem)
 
@@ -441,29 +444,38 @@ Public Class Form1
 
         End If
 
-
-
-
     End Sub
 
-    Function SetDGVSensors() As Task
+    Function SetDGV() As Task
         With DGV_Sensors.Columns
             .Add("Gruppe", "Gruppe")
             .Add("Typ", "Typ")
-            .Add("Plattform", "Plattform")
+            .Add("Platform", "Plattform")
             .Add("Pins", "Pins")
             .Add("Parameter", "Parameter")
             .Add("Filter", "Filter")
+            .Add("Class", "Class")
         End With
 
 
         With DGV_Display.Columns
             .Add("Gruppe", "Gruppe")
             .Add("Typ", "Typ")
-            .Add("Plattform", "Plattform")
+            .Add("Platform", "Plattform")
             .Add("Pins", "Pins")
             .Add("Parameter", "Parameter")
             .Add("Filter", "Filter")
+            .Add("Class", "Class")
+        End With
+
+        With DGV_Templates.Columns
+            .Add("Gruppe", "Gruppe")
+            .Add("Typ", "Typ")
+            .Add("Platform", "Plattform")
+            .Add("Pins", "Pins")
+            .Add("Parameter", "Parameter")
+            .Add("Filter", "Filter")
+            .Add("Class", "Class")
         End With
         Return Task.CompletedTask
     End Function
@@ -591,12 +603,11 @@ Public Class Form1
     End Sub
 
     Private Sub CBB_DisplayGroup_SelectedIndexChanged(sender As Object, e As EventArgs) Handles CBB_DisplayGroup.SelectedIndexChanged
-        Dim selectedGroup = If(CBB_DisplayGroup.SelectedItem IsNot Nothing, CBB_DisplayGroup.SelectedItem.ToString(), Nothing)
+        Dim selectedGroup = If(CBB_DisplayGroup.SelectedItem IsNot Nothing, CBB_DisplayGroup.SelectedItem.ToString, Nothing)
 
         CBB_DisplayType.Items.Clear()
         CBB_DisplayType.Text = ""
         pnl_DisplayConfig.Controls.Clear()
-
 
         If displayData IsNot Nothing AndAlso displayData.ContainsKey(selectedGroup) Then
             For Each display In displayData(selectedGroup)
@@ -668,6 +679,76 @@ Public Class Form1
                 DGV_Display.Rows.RemoveAt(rowIndex)
             End If
         End If
+    End Sub
+
+
+    Private Sub CBB_TemplateGroup_SelectedIndexChanged(sender As Object, e As EventArgs) Handles CBB_TemplateGroup.SelectedIndexChanged
+        Dim selectedGroup = If(CBB_TemplateGroup.SelectedItem IsNot Nothing, CBB_TemplateGroup.SelectedItem.ToString, Nothing)
+        CBB_TemplateType.Items.Clear()
+        CBB_TemplateType.Text = ""
+        pnl_TemplateConfig.Controls.Clear()
+
+
+        If templates.templateData IsNot Nothing AndAlso templates.templateData.ContainsKey(selectedGroup) Then
+            For Each template In templates.templateData(selectedGroup)
+                CBB_TemplateType.Items.Add(CType(template, JProperty).Name)
+            Next
+        End If
+    End Sub
+
+    Private Sub CBB_TemplateType_SelectedIndexChanged(sender As Object, e As EventArgs) Handles CBB_TemplateType.SelectedIndexChanged
+
+        Dim selectedGroup = CStr(CBB_TemplateGroup.SelectedItem)
+        Dim selectedTemplate = CStr(CBB_TemplateType.SelectedItem)
+
+        If selectedGroup IsNot Nothing And selectedTemplate IsNot Nothing Then
+
+            Dim jsonText = File.ReadAllText(Application.StartupPath & "\template.json")
+            Dim jsonData = JObject.Parse(jsonText)
+            RTB_yamlPreviewSensor.Clear()
+
+            If jsonData.ContainsKey(selectedGroup) AndAlso jsonData(selectedGroup)(selectedTemplate) IsNot Nothing Then
+                Dim templateInfo = jsonData(selectedGroup)(selectedTemplate)
+                GenerateTemplateConfigFields(templateInfo, pnl_TemplateConfig)
+            End If
+
+        End If
+    End Sub
+
+    Private Sub BTN_AddTemplate_Click(sender As Object, e As EventArgs) Handles BTN_AddTemplate.Click
+        Dim group = CBB_TemplateGroup.SelectedItem?.ToString
+        Dim template = CBB_TemplateType.SelectedItem?.ToString
+
+        If String.IsNullOrEmpty(group) OrElse String.IsNullOrEmpty(template) Then
+            MessageBox.Show("Bitte Templategruppe und Templatetype auswählen.")
+            Exit Sub
+        End If
+
+
+
+        Dim templateInfo As JObject = templateData(group)(template)
+        AddTemplateToGrid(group, template, templateInfo, pnl_TemplateConfig, DGV_Templates)
+
+    End Sub
+
+    Private Sub BTN_DeleteTemplate_Click(sender As Object, e As EventArgs) Handles BTN_DeleteTemplate.Click
+        If DGV_Templates.SelectedRows.Count > 0 Then
+            For Each row As DataGridViewRow In DGV_Sensors.SelectedRows
+                If Not row.IsNewRow Then
+                    DGV_Templates.Rows.Remove(row)
+                End If
+            Next
+        ElseIf DGV_Templates.SelectedCells.Count > 0 Then
+            ' Falls nur eine Zelle markiert ist:
+            Dim rowIndex = DGV_Templates.SelectedCells(0).RowIndex
+            If Not DGV_Templates.Rows(rowIndex).IsNewRow Then
+                DGV_Templates.Rows.RemoveAt(rowIndex)
+            End If
+        End If
+    End Sub
+
+    Private Sub EditDisplay_Click(sender As Object, e As EventArgs) Handles EditDisplay.Click
+
     End Sub
 
 

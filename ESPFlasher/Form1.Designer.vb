@@ -91,6 +91,20 @@ Partial Class Form1
         CBB_DisplayGroup = New ComboBox()
         Label42 = New Label()
         DGV_Display = New DataGridView()
+        TabPage4 = New TabPage()
+        Label18 = New Label()
+        pnl_LiveCodingTemplate = New Panel()
+        RTB_yamlPreviewTemplate = New RichTextBox()
+        BTN_AddTemplate = New Button()
+        BTN_StopEdingTemplate = New Button()
+        BTN_DeleteTemplate = New Button()
+        pnl_TemplateConfig = New Panel()
+        Label19 = New Label()
+        CBB_TemplateType = New ComboBox()
+        Label20 = New Label()
+        CBB_TemplateGroup = New ComboBox()
+        Label21 = New Label()
+        DGV_Templates = New DataGridView()
         CM_EditDisplay = New ContextMenuStrip(components)
         EditDisplay = New ToolStripMenuItem()
         AdvancedConfigurationDisplay = New ToolStripMenuItem()
@@ -119,6 +133,9 @@ Partial Class Form1
         TabPage3.SuspendLayout()
         pnl_LiveCodingDisplay.SuspendLayout()
         CType(DGV_Display, ComponentModel.ISupportInitialize).BeginInit()
+        TabPage4.SuspendLayout()
+        pnl_LiveCodingTemplate.SuspendLayout()
+        CType(DGV_Templates, ComponentModel.ISupportInitialize).BeginInit()
         CM_EditDisplay.SuspendLayout()
         MenuStrip1.SuspendLayout()
         SuspendLayout()
@@ -159,6 +176,7 @@ Partial Class Form1
         TabControl1.Controls.Add(TabPage1)
         TabControl1.Controls.Add(TabPage2)
         TabControl1.Controls.Add(TabPage3)
+        TabControl1.Controls.Add(TabPage4)
         TabControl1.Location = New Point(12, 27)
         TabControl1.Name = "TabControl1"
         TabControl1.SelectedIndex = 0
@@ -758,6 +776,143 @@ Partial Class Form1
         DGV_Display.Size = New Size(811, 170)
         DGV_Display.TabIndex = 14
         ' 
+        ' TabPage4
+        ' 
+        TabPage4.Controls.Add(Label18)
+        TabPage4.Controls.Add(pnl_LiveCodingTemplate)
+        TabPage4.Controls.Add(BTN_AddTemplate)
+        TabPage4.Controls.Add(BTN_StopEdingTemplate)
+        TabPage4.Controls.Add(BTN_DeleteTemplate)
+        TabPage4.Controls.Add(pnl_TemplateConfig)
+        TabPage4.Controls.Add(Label19)
+        TabPage4.Controls.Add(CBB_TemplateType)
+        TabPage4.Controls.Add(Label20)
+        TabPage4.Controls.Add(CBB_TemplateGroup)
+        TabPage4.Controls.Add(Label21)
+        TabPage4.Controls.Add(DGV_Templates)
+        TabPage4.Location = New Point(4, 24)
+        TabPage4.Name = "TabPage4"
+        TabPage4.Padding = New Padding(3)
+        TabPage4.Size = New Size(819, 844)
+        TabPage4.TabIndex = 3
+        TabPage4.Text = "Template"
+        TabPage4.UseVisualStyleBackColor = True
+        ' 
+        ' Label18
+        ' 
+        Label18.AutoSize = True
+        Label18.Location = New Point(491, 81)
+        Label18.Name = "Label18"
+        Label18.Size = New Size(70, 15)
+        Label18.TabIndex = 40
+        Label18.Text = "Live Coding"
+        ' 
+        ' pnl_LiveCodingTemplate
+        ' 
+        pnl_LiveCodingTemplate.Controls.Add(RTB_yamlPreviewTemplate)
+        pnl_LiveCodingTemplate.Location = New Point(484, 102)
+        pnl_LiveCodingTemplate.Name = "pnl_LiveCodingTemplate"
+        pnl_LiveCodingTemplate.Size = New Size(323, 465)
+        pnl_LiveCodingTemplate.TabIndex = 39
+        ' 
+        ' RTB_yamlPreviewTemplate
+        ' 
+        RTB_yamlPreviewTemplate.Location = New Point(3, 3)
+        RTB_yamlPreviewTemplate.Name = "RTB_yamlPreviewTemplate"
+        RTB_yamlPreviewTemplate.Size = New Size(317, 459)
+        RTB_yamlPreviewTemplate.TabIndex = 0
+        RTB_yamlPreviewTemplate.Text = ""
+        ' 
+        ' BTN_AddTemplate
+        ' 
+        BTN_AddTemplate.Location = New Point(484, 573)
+        BTN_AddTemplate.Name = "BTN_AddTemplate"
+        BTN_AddTemplate.Size = New Size(323, 34)
+        BTN_AddTemplate.TabIndex = 36
+        BTN_AddTemplate.Text = "Templates Hinzufügen"
+        BTN_AddTemplate.UseVisualStyleBackColor = True
+        ' 
+        ' BTN_StopEdingTemplate
+        ' 
+        BTN_StopEdingTemplate.ForeColor = Color.Red
+        BTN_StopEdingTemplate.Location = New Point(307, 62)
+        BTN_StopEdingTemplate.Name = "BTN_StopEdingTemplate"
+        BTN_StopEdingTemplate.Size = New Size(171, 34)
+        BTN_StopEdingTemplate.TabIndex = 38
+        BTN_StopEdingTemplate.Text = "Bearbeiten beenden"
+        BTN_StopEdingTemplate.UseVisualStyleBackColor = True
+        BTN_StopEdingTemplate.Visible = False
+        ' 
+        ' BTN_DeleteTemplate
+        ' 
+        BTN_DeleteTemplate.Location = New Point(7, 804)
+        BTN_DeleteTemplate.Name = "BTN_DeleteTemplate"
+        BTN_DeleteTemplate.Size = New Size(808, 34)
+        BTN_DeleteTemplate.TabIndex = 37
+        BTN_DeleteTemplate.Text = "Ausgewählte Template Löschen"
+        BTN_DeleteTemplate.UseVisualStyleBackColor = True
+        ' 
+        ' pnl_TemplateConfig
+        ' 
+        pnl_TemplateConfig.AutoScroll = True
+        pnl_TemplateConfig.Location = New Point(20, 102)
+        pnl_TemplateConfig.Name = "pnl_TemplateConfig"
+        pnl_TemplateConfig.Size = New Size(458, 505)
+        pnl_TemplateConfig.TabIndex = 35
+        ' 
+        ' Label19
+        ' 
+        Label19.AutoSize = True
+        Label19.Location = New Point(20, 55)
+        Label19.Name = "Label19"
+        Label19.Size = New Size(142, 15)
+        Label19.TabIndex = 34
+        Label19.Text = "Templates Typ auswählen"
+        ' 
+        ' CBB_TemplateType
+        ' 
+        CBB_TemplateType.FormattingEnabled = True
+        CBB_TemplateType.Location = New Point(20, 73)
+        CBB_TemplateType.Name = "CBB_TemplateType"
+        CBB_TemplateType.Size = New Size(264, 23)
+        CBB_TemplateType.TabIndex = 33
+        ' 
+        ' Label20
+        ' 
+        Label20.AutoSize = True
+        Label20.Location = New Point(19, 6)
+        Label20.Name = "Label20"
+        Label20.Size = New Size(157, 15)
+        Label20.TabIndex = 32
+        Label20.Text = "Template Gruppe auswählen"
+        ' 
+        ' CBB_TemplateGroup
+        ' 
+        CBB_TemplateGroup.FormattingEnabled = True
+        CBB_TemplateGroup.Location = New Point(19, 24)
+        CBB_TemplateGroup.Name = "CBB_TemplateGroup"
+        CBB_TemplateGroup.Size = New Size(265, 23)
+        CBB_TemplateGroup.TabIndex = 31
+        ' 
+        ' Label21
+        ' 
+        Label21.AutoSize = True
+        Label21.Location = New Point(20, 610)
+        Label21.Name = "Label21"
+        Label21.Size = New Size(136, 15)
+        Label21.TabIndex = 30
+        Label21.Text = "Hinzugefügte Templates"
+        ' 
+        ' DGV_Templates
+        ' 
+        DGV_Templates.BackgroundColor = SystemColors.ControlLight
+        DGV_Templates.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize
+        DGV_Templates.ContextMenuStrip = CM_EditSensor
+        DGV_Templates.Location = New Point(4, 628)
+        DGV_Templates.Name = "DGV_Templates"
+        DGV_Templates.Size = New Size(811, 170)
+        DGV_Templates.TabIndex = 29
+        ' 
         ' CM_EditDisplay
         ' 
         CM_EditDisplay.Items.AddRange(New ToolStripItem() {EditDisplay, AdvancedConfigurationDisplay})
@@ -834,7 +989,7 @@ Partial Class Form1
         ' 
         PythonWebseiteÖffnenToolStripMenuItem.DropDownItems.AddRange(New ToolStripItem() {PythonWebseiteÖffnenToolStripMenuItem1, ESPHomePerPIPInstallierenToolStripMenuItem})
         PythonWebseiteÖffnenToolStripMenuItem.Name = "PythonWebseiteÖffnenToolStripMenuItem"
-        PythonWebseiteÖffnenToolStripMenuItem.Size = New Size(180, 22)
+        PythonWebseiteÖffnenToolStripMenuItem.Size = New Size(178, 22)
         PythonWebseiteÖffnenToolStripMenuItem.Text = "Externe Programme"
         ' 
         ' PythonWebseiteÖffnenToolStripMenuItem1
@@ -852,7 +1007,7 @@ Partial Class Form1
         ' OTAUpdateToolStripMenuItem
         ' 
         OTAUpdateToolStripMenuItem.Name = "OTAUpdateToolStripMenuItem"
-        OTAUpdateToolStripMenuItem.Size = New Size(180, 22)
+        OTAUpdateToolStripMenuItem.Size = New Size(178, 22)
         OTAUpdateToolStripMenuItem.Text = "OTA Update"
         ' 
         ' EinstellungenToolStripMenuItem
@@ -896,6 +1051,10 @@ Partial Class Form1
         TabPage3.PerformLayout()
         pnl_LiveCodingDisplay.ResumeLayout(False)
         CType(DGV_Display, ComponentModel.ISupportInitialize).EndInit()
+        TabPage4.ResumeLayout(False)
+        TabPage4.PerformLayout()
+        pnl_LiveCodingTemplate.ResumeLayout(False)
+        CType(DGV_Templates, ComponentModel.ISupportInitialize).EndInit()
         CM_EditDisplay.ResumeLayout(False)
         MenuStrip1.ResumeLayout(False)
         MenuStrip1.PerformLayout()
@@ -988,5 +1147,19 @@ Partial Class Form1
     Friend WithEvents pnl_LiveCodingDisplay As Panel
     Friend WithEvents RTB_yamlPreviewDisplay As RichTextBox
     Friend WithEvents OTAUpdateToolStripMenuItem As ToolStripMenuItem
+    Friend WithEvents TabPage4 As TabPage
+    Friend WithEvents Label18 As Label
+    Friend WithEvents pnl_LiveCodingTemplate As Panel
+    Friend WithEvents RTB_yamlPreviewTemplate As RichTextBox
+    Friend WithEvents BTN_AddTemplate As Button
+    Friend WithEvents BTN_StopEdingTemplate As Button
+    Friend WithEvents BTN_DeleteTemplate As Button
+    Friend WithEvents pnl_TemplateConfig As Panel
+    Friend WithEvents Label19 As Label
+    Friend WithEvents CBB_TemplateType As ComboBox
+    Friend WithEvents Label20 As Label
+    Friend WithEvents CBB_TemplateGroup As ComboBox
+    Friend WithEvents Label21 As Label
+    Friend WithEvents DGV_Templates As DataGridView
 
 End Class

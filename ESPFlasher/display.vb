@@ -411,8 +411,15 @@ Module display
             If globalFilters.ContainsKey("lambda") Then
                 sb.AppendLine("    lambda: |-")
                 Dim lambdaContent = globalFilters("lambda").ToString().Trim()
-                For Each line In lambdaContent.Split({Environment.NewLine}, StringSplitOptions.RemoveEmptyEntries)
-                    sb.AppendLine($"      {line.Trim()}")
+
+                ' Split auf verschiedene Zeilenendezeichen
+                For Each line In lambdaContent.Split({vbCrLf, vbLf, Environment.NewLine}, StringSplitOptions.None)
+                    If String.IsNullOrWhiteSpace(line) Then
+                        sb.AppendLine()  ' Leere Zeile beibehalten
+                    Else
+                        ' Einrückung von 6 Spaces für Lambda-Code
+                        sb.AppendLine($"      {line.TrimEnd()}")
+                    End If
                 Next
             End If
 
@@ -420,10 +427,14 @@ Module display
             For Each f In globalFilters.Properties()
                 If f.Name <> "lambda" Then
                     Dim val = f.Value.ToString().Trim()
-                    If val.Contains(Environment.NewLine) Then
+                    If val.Contains(vbCrLf) OrElse val.Contains(vbLf) OrElse val.Contains(Environment.NewLine) Then
                         sb.AppendLine($"    {f.Name}: |-")
-                        For Each line In val.Split({Environment.NewLine}, StringSplitOptions.RemoveEmptyEntries)
-                            sb.AppendLine($"      {line.Trim()}")
+                        For Each line In val.Split({vbCrLf, vbLf, Environment.NewLine}, StringSplitOptions.None)
+                            If String.IsNullOrWhiteSpace(line) Then
+                                sb.AppendLine()
+                            Else
+                                sb.AppendLine($"      {line.TrimEnd()}")
+                            End If
                         Next
                     Else
                         sb.AppendLine($"    {f.Name}: {val}")
@@ -443,7 +454,7 @@ Module display
         For Each row As DataGridViewRow In dgv.Rows
             If row.IsNewRow Then Continue For
 
-            Dim platform = row.Cells("Plattform").Value?.ToString()?.Trim()
+            Dim platform = row.Cells("Platform").Value?.ToString()?.Trim()
             Dim paramString = row.Cells("Parameter").Value?.ToString()?.Trim()
             Dim filterString = row.Cells("Filter").Value?.ToString?.Trim()
 
@@ -578,7 +589,7 @@ Public Class DisplayCategory
     Public Property displays As List(Of DisplayExportModel)
 End Class
 Public Class DisplayExportModel
-    Public Property Plattform As String
+    Public Property Platform As String
     Public Property GlobalPins As Dictionary(Of String, String)
     Public Property DisplayEntries As List(Of Dictionary(Of String, String))
 End Class

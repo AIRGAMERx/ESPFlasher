@@ -7,7 +7,7 @@ Imports Newtonsoft.Json.Linq
 
 Module sensors
     Public sensorData As JObject
-    Dim GBLocation As New Point(480, 17)
+
 
     Function LoadSensorData() As Task
         Dim filePath = Path.Combine(Application.StartupPath, "sensors.json")
@@ -27,10 +27,7 @@ Module sensors
         Next
         Return Task.CompletedTask
     End Function
-    Public Function LoadSensorsFromJson(path As String) As List(Of SensorCategory)
-        Dim json = File.ReadAllText(path)
-        Return System.Text.Json.JsonSerializer.Deserialize(Of List(Of SensorCategory))(json)
-    End Function
+
 
 
 
@@ -172,9 +169,10 @@ Module sensors
         End If
         yOffset += 10
     End Sub
-    Private Function CollectCurrentSensorData() As (Platform As String, Parameters As String, Filters As String)
+    Private Function CollectCurrentSensorData() As (Platform As String, Parameters As String, Filters As String, SensorClass As String)
         Try
             Dim platform As String = ""
+            Dim sensorClass As String = "sensor"
             Dim parameterList As New List(Of String)
 
 
@@ -188,6 +186,7 @@ Module sensors
                 If jsonData.ContainsKey(selectedGroup) AndAlso jsonData(selectedGroup)(selectedSensor) IsNot Nothing Then
                     Dim sensorInfo = jsonData(selectedGroup)(selectedSensor)
                     platform = sensorInfo("platform")?.ToString()
+                    sensorClass = If(sensorInfo("sensor_class")?.ToString(), "sensor")
                 End If
             End If
 
@@ -229,25 +228,29 @@ Module sensors
 
             Dim filterString As String = ""
 
-            Return (platform, parameters, filterString)
+            Return (platform, parameters, filterString, sensorClass)
 
         Catch ex As Exception
-            Return ("", "", "# Fehler: " & ex.Message)
+            Return ("", "", "# Fehler: " & ex.Message, "")
         End Try
     End Function
     Private Sub UpdateYAMLPreview()
         Try
-
             Dim sensorData = CollectCurrentSensorData()
-
-
             Dim sb As New StringBuilder()
-            sb.AppendLine("# Live Preview - Nur dieser Sensor:")
-            sb.AppendLine("sensor:")
 
+            sb.AppendLine("# Live Preview - Nur dieser Sensor:")
+
+            Select Case sensorData.SensorClass.ToLower()
+                Case "binary_sensor"
+                    sb.AppendLine("binary_sensor:")
+                Case "sensor"
+                    sb.AppendLine("sensor:")
+                Case Else
+                    sb.AppendLine("sensor:")
+            End Select
 
             WriteSensorBlock(sb, sensorData.Platform, sensorData.Parameters, sensorData.Filters)
-
 
             Form1.RTB_yamlPreviewSensor.Text = sb.ToString()
 
@@ -354,20 +357,24 @@ Module sensors
 
         ' 3. Plattform ermitteln
         Dim platform As String = ""
-        If sensorInfo("plattform") IsNot Nothing Then
-            platform = sensorInfo("plattform").ToString()
+        Dim sensorClass As String = "sensor"
+        If sensorInfo("platform") IsNot Nothing Then
+            platform = sensorInfo("platform").ToString()
         End If
+        If sensorInfo("sensor_class") IsNot Nothing Then
+            sensorClass = sensorInfo("sensor_class").ToString()
+        End If
+
 
         ' 4. Zeile zum DataGridView hinzufügen
         If Form1.clickedRow > -1 Then
             Try
-
                 Dim row As DataGridViewRow = dgv.Rows(Form1.clickedRow)
-                row.Cells(0).Value = sensorGroup
-                row.Cells(1).Value = sensorType
-                row.Cells(2).Value = platform
-                row.Cells(3).Value = ""
-                row.Cells(4).Value = String.Join(",", parameter)
+                row.Cells("Gruppe").Value = sensorGroup
+                row.Cells("Typ").Value = sensorType
+                row.Cells("Platform").Value = platform
+                row.Cells("Class").Value = sensorClass
+                row.Cells("Parameter").Value = String.Join(",", parameter)
                 MsgBox("Sensor wurde gespeichert")
                 Form1.clickedRow = -1
 
@@ -375,7 +382,7 @@ Module sensors
 
             End Try
         Else
-            dgv.Rows.Add(sensorGroup, sensorType, platform, "", String.Join(", ", parameter))
+            dgv.Rows.Add(sensorGroup, sensorType, platform, "", String.Join(", ", parameter), "", sensorClass)
 
         End If
 
@@ -385,25 +392,48 @@ Module sensors
     Public Sub ExportSensorsToYaml(sb As StringBuilder, dgv As DataGridView)
         If dgv.Rows.Count = 0 Then Exit Sub
 
-        Dim sensorsExist As Boolean = False
+        ' ✅ NEU: Gruppiere nach sensor_class
+        Dim sensorGroups As New Dictionary(Of String, List(Of DataGridViewRow))
 
         For Each row As DataGridViewRow In dgv.Rows
             If row.IsNewRow Then Continue For
 
-            Dim platform = row.Cells("Plattform").Value?.ToString()?.Trim()
-            Dim paramString = row.Cells("Parameter").Value?.ToString()?.Trim()
-            Dim filterString = row.Cells("Filter").Value?.ToString?.Trim()
+            Dim sensorClass = row.Cells("Class").Value?.ToString()?.Trim().ToLower()
+            If String.IsNullOrEmpty(sensorClass) Then sensorClass = "sensor"
 
-            If String.IsNullOrEmpty(platform) Then Continue For
-
-            ' Sensor-Header nur einmal schreiben
-            If Not sensorsExist Then
-                sb.AppendLine("sensor:")
-                sensorsExist = True
+            If Not sensorGroups.ContainsKey(sensorClass) Then
+                sensorGroups(sensorClass) = New List(Of DataGridViewRow)
             End If
+            sensorGroups(sensorClass).Add(row)
+        Next
 
+        ' Schreibe Sensoren gruppiert nach Typ
+        For Each group In sensorGroups
+            Dim sensorType = group.Key
+            Dim rows = group.Value
 
-            WriteSensorBlock(sb, platform, paramString, filterString)
+            ' Header für Sensor-Typ
+            Select Case sensorType
+                Case "sensor"
+                    sb.AppendLine("sensor:")
+                Case "binary_sensor"
+                    sb.AppendLine("binary_sensor:")
+                Case Else
+                    sb.AppendLine("sensor:")
+            End Select
+
+            ' Alle Sensoren dieses Typs
+            For Each row In rows
+                Dim platform = row.Cells("Platform").Value?.ToString()?.Trim()
+                Dim paramString = row.Cells("Parameter").Value?.ToString()?.Trim()
+                Dim filterString = row.Cells("Filter").Value?.ToString()?.Trim()
+
+                If String.IsNullOrEmpty(platform) Then Continue For
+
+                WriteSensorBlock(sb, platform, paramString, filterString)
+            Next
+
+            sb.AppendLine() ' Leerzeile zwischen Sensor-Typen
         Next
     End Sub
 
@@ -427,7 +457,7 @@ Module sensors
         Dim flatKeys As New HashSet(Of String) From {
         "update_interval", "timeout", "accuracy_decimals", "echo_pin", "trigger_pin", "pulse_time",
         "shunt_resistance", "max_voltage", "max_current", "bus_voltage", "shunt_voltage",
-        "cs_pin", "internal_filter", "unit_of_measurement", "accuracy_decimals"
+        "cs_pin", "internal_filter", "unit_of_measurement", "accuracy_decimals", "device_class"
     }
 
         Dim accuracyFixups = New Dictionary(Of String, Tuple(Of String, String)) From {
@@ -574,15 +604,6 @@ Public Class SensorModel
     Public Property bus As String
 End Class
 
-Public Class SensorCategory
-    Public Property category As String
-    Public Property sensors As List(Of SensorModel)
-End Class
 
-Public Class SensorExportModel
-    Public Property Plattform As String
-    Public Property GlobalPins As Dictionary(Of String, String)
-    Public Property SensorEntries As List(Of Dictionary(Of String, String))
-End Class
 
 

@@ -19,9 +19,9 @@ Module templates
         templateData = JObject.Parse(json)
 
         ' Template-Gruppen in ComboBox laden
-        Form1.CBB_TemplateGroup.Items.Clear()
+        Main.CBB_TemplateGroup.Items.Clear()
         For Each group In templateData.Properties()
-            Form1.CBB_TemplateGroup.Items.Add(group.Name)
+            Main.CBB_TemplateGroup.Items.Add(group.Name)
         Next
         Return Task.CompletedTask
     End Function
@@ -31,11 +31,11 @@ Module templates
             Return
         End If
 
-        Form1.CBB_TemplateType.Items.Clear()
+        Main.CBB_TemplateType.Items.Clear()
         Dim groupData = CType(templateData(selectedGroup), JObject)
 
         For Each templateType In groupData.Properties()
-            Form1.CBB_TemplateType.Items.Add(templateType.Name)
+            Main.CBB_TemplateType.Items.Add(templateType.Name)
         Next
     End Sub
 
@@ -226,9 +226,9 @@ Module templates
             Dim parameterList As New List(Of String)
             Dim lambdaContent As String = ""
 
-            If Form1.CBB_TemplateGroup.SelectedItem IsNot Nothing AndAlso Form1.CBB_TemplateType.SelectedItem IsNot Nothing Then
-                Dim selectedGroup = Form1.CBB_TemplateGroup.SelectedItem.ToString()
-                Dim selectedTemplate = Form1.CBB_TemplateType.SelectedItem.ToString()
+            If Main.CBB_TemplateGroup.SelectedItem IsNot Nothing AndAlso Main.CBB_TemplateType.SelectedItem IsNot Nothing Then
+                Dim selectedGroup = Main.CBB_TemplateGroup.SelectedItem.ToString()
+                Dim selectedTemplate = Main.CBB_TemplateType.SelectedItem.ToString()
                 If templateData IsNot Nothing AndAlso templateData.ContainsKey(selectedGroup) AndAlso templateData(selectedGroup)(selectedTemplate) IsNot Nothing Then
                     Dim templateInfo = templateData(selectedGroup)(selectedTemplate)
                     platform = templateInfo("platform")?.ToString()
@@ -236,7 +236,7 @@ Module templates
                 End If
             End If
 
-            For Each ctrl As Control In Form1.pnl_TemplateConfig.Controls
+            For Each ctrl As Control In Main.pnl_TemplateConfig.Controls
                 Dim value As String = ""
                 Dim fieldName As String = ""
 
@@ -315,13 +315,13 @@ Module templates
 
             sb.AppendLine("# Live Preview - Nur dieses Template:")
 
-            ' Korrekter Aufruf mit allen 4 Parametern
-            WriteTemplateBlock(sb, templateData.SensorClass, templateData.Platform, templateData.Parameters, templateData.Lambda)
+            ' KORRIGIERT: Verwende WriteUniversalBlockWithSensorType direkt
+            WriteUniversalBlockWithSensorType(sb, templateData.SensorClass, templateData.Platform, templateData.Parameters, templateData.Lambda)
 
-            Form1.RTB_yamlPreviewTemplate.Text = sb.ToString()
+            Main.RTB_yamlPreviewTemplate.Text = sb.ToString()
 
         Catch ex As Exception
-            Form1.RTB_yamlPreviewTemplate.Text = "# Fehler in der Konfiguration:" & vbCrLf & ex.Message
+            Main.RTB_yamlPreviewTemplate.Text = "# Fehler in der Konfiguration:" & vbCrLf & ex.Message
         End Try
     End Sub
 
@@ -420,9 +420,9 @@ Module templates
         End If
 
         ' 4. Zeile zum DataGridView hinzufügen
-        If Form1.clickedRow > -1 Then
+        If Main.clickedRow > -1 Then
             Try
-                Dim row As DataGridViewRow = dgv.Rows(Form1.clickedRow)
+                Dim row As DataGridViewRow = dgv.Rows(Main.clickedRow)
                 row.Cells("Gruppe").Value = templateGroup
                 row.Cells("Typ").Value = templateType
                 row.Cells("Platform").Value = platform
@@ -430,7 +430,7 @@ Module templates
                 row.Cells("Parameter").Value = templateData.Parameters
                 row.Cells("Filter").Value = templateData.Lambda ' Lambda in Filter-Spalte
                 MessageBox.Show("Template wurde aktualisiert", "Erfolg", MessageBoxButtons.OK, MessageBoxIcon.Information)
-                Form1.clickedRow = -1
+                Main.clickedRow = -1
 
             Catch ex As Exception
                 MessageBox.Show($"Fehler beim Aktualisieren: {ex.Message}", "Fehler", MessageBoxButtons.OK, MessageBoxIcon.Error)
@@ -441,7 +441,7 @@ Module templates
             MessageBox.Show("Template wurde hinzugefügt", "Erfolg", MessageBoxButtons.OK, MessageBoxIcon.Information)
         End If
 
-        Form1.clickedRow = -1
+        Main.clickedRow = -1
 
         ' Panel leeren nach erfolgreichem Hinzufügen
         panelTemplate.Controls.Clear()
@@ -580,191 +580,16 @@ Module templates
     End Sub
 
     Private Sub WriteTemplateSingleBlock(sb As StringBuilder, platform As String, paramString As String, lambdaContent As String)
-        sb.AppendLine($"  - platform: {platform}")
 
-        ' DEBUG: Parameter-String anzeigen
-        Console.WriteLine($"DEBUG Parameter-String: '{paramString}'")
-
-        ' Key-Value-Paare aus paramString
-        Dim flatDict As New Dictionary(Of String, String)
-        If Not String.IsNullOrEmpty(paramString) Then
-            For Each part In paramString.Split(","c)
-                Dim keyVal = part.Trim().Split("="c, 2)
-                If keyVal.Length = 2 Then
-                    flatDict(keyVal(0).Trim()) = keyVal(1).Trim()
-                    ' DEBUG: Jedes Key-Value-Paar anzeigen
-                    Console.WriteLine($"DEBUG flatDict: '{keyVal(0).Trim()}' = '{keyVal(1).Trim()}'")
-                End If
-            Next
-        End If
-
-        ' Template-spezifische Felder
-        Dim templateSpecificFields = New HashSet(Of String) From {
-        "name", "unit_of_measurement", "device_class", "state_class", "accuracy_decimals",
-        "icon", "update_interval", "optimistic", "assumed_state", "disabled_by_default"
-    }
-
-        ' Multi-line Aktions-Felder für Switches
-        Dim actionFields = New HashSet(Of String) From {
-        "turn_on_action", "turn_off_action"
-    }
-
-        ' Standard-Felder schreiben
-        For Each kvp In flatDict
-            Dim key = kvp.Key.ToLower()
-            Dim val = kvp.Value
-
-            ' DEBUG: Jedes verarbeitete Feld anzeigen
-            Console.WriteLine($"DEBUG Processing: Key='{key}', Value='{val}'")
-
-            If templateSpecificFields.Contains(key) Then
-                Select Case key
-                    Case "name"
-                        sb.AppendLine($"    name: ""{val}""")
-
-                    Case "unit_of_measurement"
-                        If Not String.IsNullOrEmpty(val) Then
-                            ' Das kaputte Symbol ersetzen
-                            val = val.Replace("â€", "°")  ' Häufiger UTF-8 → Windows-1252 Fehler
-                            val = val.Replace("°", "°")   ' Falls es ein anderes Grad-Symbol ist
-                            val = val.Trim()
-
-                            ' Standard-Korrekturen
-                            If val = "C" Then val = "°C"
-                            If val = "F" Then val = "°F"
-                            If val = " C" Then val = "°C"
-
-                            sb.AppendLine($"    unit_of_measurement: ""{val}""")
-                        End If
-
-                    Case "device_class"
-                        If Not String.IsNullOrEmpty(val) Then
-                            sb.AppendLine($"    device_class: {val}")
-                        End If
-
-                    Case "state_class"
-                        If Not String.IsNullOrEmpty(val) Then
-                            sb.AppendLine($"    state_class: {val}")
-                        End If
-
-                    Case "accuracy_decimals"
-                        If IsNumeric(val) Then
-                            sb.AppendLine($"    accuracy_decimals: {val}")
-                        End If
-
-                    Case "icon"
-                        If Not String.IsNullOrEmpty(val) Then
-                            sb.AppendLine($"    icon: ""{val}""")
-                        End If
-
-                    Case "update_interval"
-                        If Not String.IsNullOrEmpty(val) Then
-                            If IsNumeric(val) Then
-                                sb.AppendLine($"    update_interval: {val}s")
-                            Else
-                                sb.AppendLine($"    update_interval: {val}")
-                            End If
-                        End If
-
-                    Case "optimistic", "assumed_state", "disabled_by_default"
-                        If val.ToLower() = "true" Then
-                            sb.AppendLine($"    {key}: true")
-                        ElseIf val.ToLower() = "false" Then
-                            sb.AppendLine($"    {key}: false")
-                        End If
-                End Select
-
-            ElseIf actionFields.Contains(key) Then
-                ' Multi-line Aktionen für Switches
-                sb.AppendLine($"    {key}:")
-                If val.Contains(vbCrLf) OrElse val.Contains(vbLf) Then
-                    For Each line In val.Split({vbCrLf, vbLf}, StringSplitOptions.RemoveEmptyEntries)
-                        Dim trimmedLine = line.Trim()
-                        If trimmedLine.StartsWith("-") Then
-                            sb.AppendLine($"      {trimmedLine}")
-                        Else
-                            sb.AppendLine($"      - {trimmedLine}")
-                        End If
-                    Next
-                Else
-                    If val.StartsWith("-") Then
-                        sb.AppendLine($"      {val}")
-                    Else
-                        sb.AppendLine($"      - {val}")
-                    End If
-                End If
-            End If
-        Next
-
-        ' Lambda-Funktion schreiben
-        If Not String.IsNullOrWhiteSpace(lambdaContent) Then
-            sb.AppendLine("    lambda: |-")
-            For Each line In lambdaContent.Split({vbCrLf, vbLf}, StringSplitOptions.None)
-                If String.IsNullOrWhiteSpace(line) Then
-                    sb.AppendLine()
-                Else
-                    sb.AppendLine($"      {line.TrimEnd()}")
-                End If
-            Next
-        End If
-
-        sb.AppendLine()
-
-
+        WriteUniversalBlock(sb, BlockType.Template, platform, paramString, lambdaContent)
     End Sub
 
-    ' Legacy-Funktion für Kompatibilität (4 Parameter)
+
     Private Sub WriteTemplateBlock(sb As StringBuilder, sensorClass As String, platform As String, paramString As String, lambdaContent As String)
-        ' Template-Typ bestimmen basierend auf sensor_class
-        Select Case sensorClass.ToLower()
-            Case "sensor"
-                sb.AppendLine("sensor:")
-            Case "binary_sensor"
-                sb.AppendLine("binary_sensor:")
-            Case "text_sensor"
-                sb.AppendLine("text_sensor:")
-            Case "switch"
-                sb.AppendLine("switch:")
-            Case Else
-                sb.AppendLine("sensor:")  ' Fallback
-        End Select
 
-        WriteTemplateSingleBlock(sb, platform, paramString, lambdaContent)
+        WriteUniversalBlockWithSensorType(sb, sensorClass, platform, paramString, lambdaContent)
     End Sub
 
-    ' Template-Validierung
-    Public Function ValidateTemplateData(templateData As Dictionary(Of String, Object)) As List(Of String)
-        Dim errors As New List(Of String)
 
-        ' Name ist pflicht
-        If Not templateData.ContainsKey("name") OrElse String.IsNullOrWhiteSpace(templateData("name").ToString()) Then
-            errors.Add("Template-Name ist erforderlich")
-        End If
 
-        ' Lambda ist für die meisten Templates pflicht
-        Dim sensorClass = If(templateData.ContainsKey("sensor_class"), templateData("sensor_class").ToString().ToLower(), "sensor")
-        If sensorClass <> "switch" AndAlso (Not templateData.ContainsKey("lambda") OrElse String.IsNullOrWhiteSpace(templateData("lambda").ToString())) Then
-            errors.Add("Lambda-Funktion ist erforderlich")
-        End If
-
-        ' Switch-spezifische Validierung
-        If sensorClass = "switch" Then
-            If Not templateData.ContainsKey("turn_on_action") OrElse String.IsNullOrWhiteSpace(templateData("turn_on_action").ToString()) Then
-                errors.Add("turn_on_action ist für Template-Switches erforderlich")
-            End If
-            If Not templateData.ContainsKey("turn_off_action") OrElse String.IsNullOrWhiteSpace(templateData("turn_off_action").ToString()) Then
-                errors.Add("turn_off_action ist für Template-Switches erforderlich")
-            End If
-        End If
-
-        ' Lambda-Syntax grundlegend prüfen
-        If templateData.ContainsKey("lambda") Then
-            Dim lambda = templateData("lambda").ToString()
-            If Not lambda.Contains("return") AndAlso Not lambda.Contains("id(") Then
-                errors.Add("Lambda-Funktion sollte 'return' oder 'id()' enthalten")
-            End If
-        End If
-
-        Return errors
-    End Function
 End Module

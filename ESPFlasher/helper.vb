@@ -1,7 +1,7 @@
 ﻿Module helper
     Public Function pinInUse(pin As String) As Boolean
 
-        For Each row As DataGridViewRow In Form1.DGV_Sensors.Rows
+        For Each row As DataGridViewRow In Main.DGV_Sensors.Rows
             If row.IsNewRow Then Continue For
             Dim paramString As String = row.Cells("Parameter").Value?.ToString()
             If String.IsNullOrWhiteSpace(paramString) Then Continue For
@@ -14,7 +14,7 @@
             End If
         Next
 
-        For Each row As DataGridViewRow In Form1.DGV_Display.Rows
+        For Each row As DataGridViewRow In Main.DGV_Display.Rows
             If row.IsNewRow Then Continue For
             Dim paramString As String = row.Cells("Parameter").Value?.ToString()
             If String.IsNullOrWhiteSpace(paramString) Then Continue For

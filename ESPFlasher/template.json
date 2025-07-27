@@ -1,0 +1,495 @@
+{
+  "Template Sensoren": {
+    "Berechnung": {
+      "platform": "template",
+      "sensor_class": "sensor",
+      "werte": [ "Berechneter Wert basierend auf anderen Sensoren" ],
+      "required": [ "name", "lambda" ],
+      "optional": [ "unit_of_measurement", "accuracy_decimals", "device_class", "state_class", "icon", "update_interval" ],
+      "baseconfig": [ "disabled_by_default" ],
+      "disable_by_default": [ "True", "False" ],
+      "ui_fields": {
+        "name": {
+          "type": "TextBox",
+          "placeholder": "Berechnete Temperatur"
+        },
+        "lambda": {
+          "type": "TextBox",
+          "multiline": true,
+          "placeholder": "return (id(temp1).state + id(temp2).state) / 2;"
+        },
+        "unit_of_measurement": {
+          "type": "ComboBox",
+          "values": [ "°C", "°F", "%", "V", "A", "W", "kWh", "hPa", "ppm", "lux", "m", "cm", "mm" ]
+        },
+        "device_class": {
+          "type": "ComboBox",
+          "values": [ "temperature", "humidity", "pressure", "voltage", "current", "power", "energy", "illuminance", "distance", "speed" ]
+        },
+        "state_class": {
+          "type": "ComboBox",
+          "values": [ "measurement", "total_increasing", "total" ]
+        },
+        "accuracy_decimals": {
+          "type": "NumericUpDown",
+          "min": 0,
+          "max": 5,
+          "step": 1
+        },
+        "update_interval": {
+          "type": "ComboBox",
+          "values": [ "1s", "5s", "10s", "30s", "1min", "5min", "15min", "never" ]
+        },
+        "icon": {
+          "type": "TextBox",
+          "placeholder": "mdi:thermometer"
+        }
+      },
+      "info": [ "Virtueller Sensor", "Lambda-Funktion erforderlich", "Referenziert andere Sensoren" ],
+      "lambda_examples": [
+        "// Durchschnitt: return (id(temp1).state + id(temp2).state) / 2;",
+        "// Fahrenheit zu Celsius: return (id(temp_f).state - 32) * 5/9;",
+        "// Differenz: return id(temp_out).state - id(temp_in).state;",
+        "// Maximum: return max(id(temp1).state, id(temp2).state);"
+      ]
+    },
+
+    "Umrechnung": {
+      "platform": "template",
+      "sensor_class": "sensor",
+      "werte": [ "Einheitenumrechnung (F zu C, bar zu psi, etc.)" ],
+      "required": [ "name", "lambda" ],
+      "optional": [ "unit_of_measurement", "accuracy_decimals", "icon" ],
+      "baseconfig": [ "disabled_by_default" ],
+      "disable_by_default": [ "True", "False" ],
+      "ui_fields": {
+        "name": {
+          "type": "TextBox",
+          "placeholder": "Temperatur in Fahrenheit"
+        },
+        "lambda": {
+          "type": "TextBox",
+          "multiline": true,
+          "placeholder": "return id(temp_celsius).state * 9/5 + 32;"
+        },
+        "unit_of_measurement": {
+          "type": "ComboBox",
+          "values": [ "°F", "°C", "bar", "psi", "mph", "km/h", "in", "ft", "gal", "l" ]
+        },
+        "accuracy_decimals": {
+          "type": "NumericUpDown",
+          "min": 0,
+          "max": 3,
+          "step": 1
+        },
+        "icon": {
+          "type": "TextBox",
+          "placeholder": "mdi:thermometer-lines"
+        }
+      },
+      "info": [ "Einheitenkonvertierung", "Für verschiedene Maßeinheiten" ],
+      "lambda_examples": [
+        "// Celsius zu Fahrenheit: return id(temp_c).state * 9/5 + 32;",
+        "// Meter zu Feet: return id(distance_m).state * 3.28084;",
+        "// Bar zu PSI: return id(pressure_bar).state * 14.5038;",
+        "// km/h zu mph: return id(speed_kmh).state * 0.621371;"
+      ]
+    },
+
+    "Zeit_basiert": {
+      "platform": "template",
+      "sensor_class": "sensor",
+      "werte": [ "Zeitbasierte Werte (Stunde, Tag, etc.)" ],
+      "required": [ "name", "lambda" ],
+      "optional": [ "unit_of_measurement", "accuracy_decimals", "update_interval" ],
+      "baseconfig": [ "disabled_by_default" ],
+      "disable_by_default": [ "True", "False" ],
+      "ui_fields": {
+        "name": {
+          "type": "TextBox",
+          "placeholder": "Aktuelle Stunde"
+        },
+        "lambda": {
+          "type": "TextBox",
+          "multiline": true,
+          "placeholder": "return id(sntp_time).now().hour;"
+        },
+        "unit_of_measurement": {
+          "type": "ComboBox",
+          "values": [ "h", "min", "s", "d", "" ]
+        },
+        "accuracy_decimals": {
+          "type": "NumericUpDown",
+          "min": 0,
+          "max": 2,
+          "step": 1
+        },
+        "update_interval": {
+          "type": "ComboBox",
+          "values": [ "1min", "5min", "15min", "1h" ]
+        }
+      },
+      "info": [ "Zeit-Komponente erforderlich", "F�r zeitbasierte Logik" ],
+      "lambda_examples": [
+        "// Aktuelle Stunde: return id(sntp_time).now().hour;",
+        "// Wochentag (1=Mo): return id(sntp_time).now().day_of_week;",
+        "// Tag im Monat: return id(sntp_time).now().day_of_month;",
+        "// Minuten seit Mitternacht: return id(sntp_time).now().hour * 60 + id(sntp_time).now().minute;"
+      ]
+    },
+
+    "Statistik": {
+      "platform": "template",
+      "sensor_class": "sensor",
+      "werte": [ "Statistische Auswertungen (Min, Max, Trend)" ],
+      "required": [ "name", "lambda" ],
+      "optional": [ "unit_of_measurement", "accuracy_decimals", "update_interval" ],
+      "baseconfig": [ "disabled_by_default" ],
+      "disable_by_default": [ "True", "False" ],
+      "ui_fields": {
+        "name": {
+          "type": "TextBox",
+          "placeholder": "Temperatur Trend"
+        },
+        "lambda": {
+          "type": "TextBox",
+          "multiline": true,
+          "placeholder": "static float last_temp = 20.0;\nfloat current = id(temperature).state;\nfloat trend = current - last_temp;\nlast_temp = current;\nreturn trend;"
+        },
+        "unit_of_measurement": {
+          "type": "ComboBox",
+          "values": [ "�C/h", "%/min", "trend", "" ]
+        },
+        "accuracy_decimals": {
+          "type": "NumericUpDown",
+          "min": 0,
+          "max": 3,
+          "step": 1
+        },
+        "update_interval": {
+          "type": "ComboBox",
+          "values": [ "30s", "1min", "5min", "15min" ]
+        }
+      },
+      "info": [ "Erweiterte Lambda-Funktionen", "Statische Variablen m�glich" ],
+      "lambda_examples": [
+        "// Trend berechnen: static float last = 0; float diff = id(sensor).state - last; last = id(sensor).state; return diff;",
+        "// Durchschnitt 3 Werte: return (id(s1).state + id(s2).state + id(s3).state) / 3;",
+        "// Differenz zu gestern: return id(heute).state - id(gestern).state;"
+      ]
+    }
+  },
+
+  "Template Binary Sensoren": {
+    "Schwellwert": {
+      "platform": "template",
+      "sensor_class": "binary_sensor",
+      "werte": [ "Schwellwert-�berwachung (gr��er/kleiner als)" ],
+      "required": [ "name", "lambda" ],
+      "optional": [ "device_class", "icon" ],
+      "baseconfig": [ "disabled_by_default" ],
+      "disable_by_default": [ "True", "False" ],
+      "ui_fields": {
+        "name": {
+          "type": "TextBox",
+          "placeholder": "Temperatur zu hoch"
+        },
+        "lambda": {
+          "type": "TextBox",
+          "multiline": true,
+          "placeholder": "return id(temperature).state > 25.0;"
+        },
+        "device_class": {
+          "type": "ComboBox",
+          "values": [ "problem", "safety", "heat", "cold", "moisture", "motion", "door", "window", "garage_door", "opening" ]
+        },
+        "icon": {
+          "type": "TextBox",
+          "placeholder": "mdi:thermometer-alert"
+        }
+      },
+      "info": [ "�berwachung von Grenzwerten", "Gibt true/false zur�ck" ],
+      "lambda_examples": [
+        "// Temperatur �ber 25�C: return id(temp).state > 25.0;",
+        "// Luftfeuchtigkeit unter 30%: return id(humidity).state < 30.0;",
+        "// Spannung im Bereich: return id(voltage).state >= 3.0 && id(voltage).state <= 3.6;",
+        "// Sensor nicht verf�gbar: return isnan(id(sensor).state);"
+      ]
+    },
+
+
+    "Zeit_Zustand": {
+      "platform": "template",
+      "sensor_class": "binary_sensor",
+      "werte": [ "Zeitbasierte Zust�nde (Tag/Nacht, Werktag)" ],
+      "required": [ "name", "lambda" ],
+      "optional": [ "device_class", "icon" ],
+      "baseconfig": [ "disabled_by_default" ],
+      "disable_by_default": [ "True", "False" ],
+      "ui_fields": {
+        "name": {
+          "type": "TextBox",
+          "placeholder": "Nacht Modus"
+        },
+        "lambda": {
+          "type": "TextBox",
+          "multiline": true,
+          "placeholder": "auto time = id(sntp_time).now();\nreturn time.hour >= 22 || time.hour <= 6;"
+        },
+        "device_class": {
+          "type": "ComboBox",
+          "values": [ "light", "motion", "occupancy", "presence", "running", "" ]
+        },
+        "icon": {
+          "type": "TextBox",
+          "placeholder": "mdi:weather-night"
+        }
+      },
+      "info": [ "Zeit-Komponente erforderlich", "F�r zeitgesteuerte Automatisierung" ],
+      "lambda_examples": [
+        "// Nacht (22-6 Uhr): auto t = id(sntp_time).now(); return t.hour >= 22 || t.hour <= 6;",
+        "// Werktag (Mo-Fr): auto t = id(sntp_time).now(); return t.day_of_week >= 1 && t.day_of_week <= 5;",
+        "// Arbeitsstunden: auto t = id(sntp_time).now(); return t.hour >= 8 && t.hour <= 17;",
+        "// Wochenende: auto t = id(sntp_time).now(); return t.day_of_week == 6 || t.day_of_week == 7;"
+      ]
+    },
+
+    "Kombination": {
+      "platform": "template",
+      "sensor_class": "binary_sensor",
+      "werte": [ "Kombinierte Bedingungen (UND/ODER Verkn�pfung)" ],
+      "required": [ "name", "lambda" ],
+      "optional": [ "device_class", "icon" ],
+      "baseconfig": [ "disabled_by_default" ],
+      "disable_by_default": [ "True", "False" ],
+      "ui_fields": {
+        "name": {
+          "type": "TextBox",
+          "placeholder": "Optimale Bedingungen"
+        },
+        "lambda": {
+          "type": "TextBox",
+          "multiline": true,
+          "placeholder": "return id(temp).state > 20.0 && id(temp).state < 25.0 && id(humidity).state > 40.0;"
+        },
+        "device_class": {
+          "type": "ComboBox",
+          "values": [ "problem", "safety", "running", "heat", "cold", "moisture", "" ]
+        },
+        "icon": {
+          "type": "TextBox",
+          "placeholder": "mdi:check-circle"
+        }
+      },
+      "info": [ "Mehrere Bedingungen kombinieren", "Logische Operatoren: &&, ||, !" ],
+      "lambda_examples": [
+        "// Alle Bedingungen: return id(temp).state > 20 && id(hum).state < 60 && id(light).state;",
+        "// Eine von mehreren: return id(motion1).state || id(motion2).state || id(door).state;",
+        "// Nicht-Bedingung: return !id(rain_sensor).state && id(wind).state < 10;",
+        "// Komplex: return (id(temp).state > 20 && id(hum).state < 70) || id(manual_override).state;"
+      ]
+    },
+    "GPIO_Taster": {
+      "platform": "template",
+      "sensor_class": "binary_sensor",
+      "werte": [ "Virtueller Taster basierend auf GPIO" ],
+      "required": [ "name", "lambda" ],
+      "optional": [ "device_class", "icon", "on_press", "on_release" ],
+      "baseconfig": [ "disabled_by_default" ],
+      "disable_by_default": [ "True", "False" ],
+      "ui_fields": {
+        "name": {
+          "type": "TextBox",
+          "placeholder": "Taster Wohnzimmer"
+        },
+        "lambda": {
+          "type": "TextBox",
+          "multiline": true,
+          "placeholder": "return id(gpio_pin_0).state;"
+        },
+        "device_class": {
+          "type": "ComboBox",
+          "values": [ "button", "door", "window", "garage_door", "opening" ]
+        },
+        "on_press": {
+          "type": "TextBox",
+          "multiline": true,
+          "placeholder": "- switch.toggle: relay1\n- logger.log: \"Taster gedrückt\""
+        },
+        "on_release": {
+          "type": "TextBox",
+          "multiline": true,
+          "placeholder": "- logger.log: \"Taster losgelassen\""
+        },
+        "icon": {
+          "type": "TextBox",
+          "placeholder": "mdi:gesture-tap"
+        }
+      },
+      "info": [ "Referenziert GPIO Binary Sensor", "Template für erweiterte Logik" ],
+      "lambda_examples": [
+        "// GPIO-Status abfragen: return id(gpio_button).state;",
+        "// Invertiert: return !id(gpio_button).state;",
+        "// Mit Entprellung: static bool last = false; bool current = id(gpio_button).state; if (current != last) { last = current; return current; } return false;"
+      ]
+    },
+
+    "Zustands�nderung": {
+      "platform": "template",
+      "sensor_class": "binary_sensor",
+      "werte": [ "Erkennung von �nderungen (steigend/fallend)" ],
+      "required": [ "name", "lambda" ],
+      "optional": [ "device_class", "icon" ],
+      "baseconfig": [ "disabled_by_default" ],
+      "disable_by_default": [ "True", "False" ],
+      "ui_fields": {
+        "name": {
+          "type": "TextBox",
+          "placeholder": "Temperatur steigt"
+        },
+        "lambda": {
+          "type": "TextBox",
+          "multiline": true,
+          "placeholder": "static float last_temp = 20.0;\nfloat current = id(temperature).state;\nbool rising = current > last_temp + 0.5;\nlast_temp = current;\nreturn rising;"
+        },
+        "device_class": {
+          "type": "ComboBox",
+          "values": [ "motion", "problem", "running", "heat", "cold", "" ]
+        },
+        "icon": {
+          "type": "TextBox",
+          "placeholder": "mdi:trending-up"
+        }
+      },
+      "info": [ "Statische Variablen f�r Vergleich", "Trend-Erkennung" ],
+      "lambda_examples": [
+        "// Steigend: static float last = 0; bool up = id(sensor).state > last + 1; last = id(sensor).state; return up;",
+        "// Schnelle �nderung: static float last = 0; bool fast = abs(id(sensor).state - last) > 5; last = id(sensor).state; return fast;",
+        "// �ber Zeit: static uint32_t last_time = 0; if (millis() - last_time > 60000) { last_time = millis(); return true; } return false;"
+      ]
+    }
+  },
+
+  "Template Text Sensoren": {
+    "Status_Text": {
+      "platform": "template",
+      "sensor_class": "text_sensor",
+      "werte": [ "Textuelle Statusmeldungen" ],
+      "required": [ "name", "lambda" ],
+      "optional": [ "icon", "update_interval" ],
+      "baseconfig": [ "disabled_by_default" ],
+      "disable_by_default": [ "True", "False" ],
+      "ui_fields": {
+        "name": {
+          "type": "TextBox",
+          "placeholder": "System Status"
+        },
+        "lambda": {
+          "type": "TextBox",
+          "multiline": true,
+          "placeholder": "if (id(temp).state > 30) return \"Hei�\";\nelse if (id(temp).state > 20) return \"Warm\";\nelse return \"Kalt\";"
+        },
+        "icon": {
+          "type": "TextBox",
+          "placeholder": "mdi:information"
+        },
+        "update_interval": {
+          "type": "ComboBox",
+          "values": [ "5s", "10s", "30s", "1min", "5min" ]
+        }
+      },
+      "info": [ "Textuelle Ausgabe", "Bedingte Texte basierend auf Sensoren" ],
+      "lambda_examples": [
+        "// Zustand bewerten: if (id(temp).state > 25) return \"Hei�\"; return \"OK\";",
+        "// Mehrere Bedingungen: if (id(temp).state > 30) return \"Zu hei�\"; else if (id(temp).state < 10) return \"Zu kalt\"; return \"Optimal\";",
+        "// Zeit-Text: auto t = id(sntp_time).now(); return t.strftime(\"%H:%M\");",
+        "// Sensor-Kombination: return \"T:\" + to_string(id(temp).state) + \"�C H:\" + to_string(id(hum).state) + \"%\";"
+      ]
+    },
+
+    "Formatierung": {
+      "platform": "template",
+      "sensor_class": "text_sensor",
+      "werte": [ "Formatierte Sensorwerte als Text" ],
+      "required": [ "name", "lambda" ],
+      "optional": [ "icon", "update_interval" ],
+      "baseconfig": [ "disabled_by_default" ],
+      "disable_by_default": [ "True", "False" ],
+      "ui_fields": {
+        "name": {
+          "type": "TextBox",
+          "placeholder": "Temperatur formatiert"
+        },
+        "lambda": {
+          "type": "TextBox",
+          "multiline": true,
+          "placeholder": "return \"Temperatur: \" + to_string(id(temp).state) + \"�C\";"
+        },
+        "icon": {
+          "type": "TextBox",
+          "placeholder": "mdi:format-text"
+        },
+        "update_interval": {
+          "type": "ComboBox",
+          "values": [ "5s", "10s", "30s", "1min" ]
+        }
+      },
+      "info": [ "Text-Formatierung", "Sensordaten als String" ],
+      "lambda_examples": [
+        "// Einfach: return to_string(id(temp).state) + \"�C\";",
+        "// Mit Beschreibung: return \"Aktuell: \" + to_string(id(temp).state) + \"�C\";",
+        "// Mehrere Werte: return \"T:\" + to_string(id(temp).state) + \" H:\" + to_string(id(hum).state);",
+        "// Zeitstempel: auto t = id(sntp_time).now(); return \"Messung um \" + t.strftime(\"%H:%M\");"
+      ]
+    }
+  },
+
+  "Template Switches": {
+    "Logik_Switch": {
+      "platform": "template",
+      "sensor_class": "switch",
+      "werte": [ "Virtueller Schalter mit eigener Logik" ],
+      "required": [ "name", "turn_on_action", "turn_off_action" ],
+      "optional": [ "lambda", "optimistic", "assumed_state", "icon" ],
+      "baseconfig": [ "disabled_by_default" ],
+      "disable_by_default": [ "True", "False" ],
+      "ui_fields": {
+        "name": {
+          "type": "TextBox",
+          "placeholder": "Master Schalter"
+        },
+        "turn_on_action": {
+          "type": "TextBox",
+          "multiline": true,
+          "placeholder": "- switch.turn_on: relay1\n- switch.turn_on: relay2"
+        },
+        "turn_off_action": {
+          "type": "TextBox",
+          "multiline": true,
+          "placeholder": "- switch.turn_off: relay1\n- switch.turn_off: relay2"
+        },
+        "lambda": {
+          "type": "TextBox",
+          "multiline": true,
+          "placeholder": "return id(relay1).state && id(relay2).state;"
+        },
+        "optimistic": {
+          "type": "CheckBox"
+        },
+        "assumed_state": {
+          "type": "CheckBox"
+        },
+        "icon": {
+          "type": "TextBox",
+          "placeholder": "mdi:power"
+        }
+      },
+      "info": [ "Virtueller Schalter", "Steuert andere Komponenten" ],
+      "lambda_examples": [
+        "// Status von anderen: return id(relay1).state;",
+        "// Kombiniert: return id(relay1).state && id(relay2).state;",
+        "// Bedingung: return id(temp).state > 25.0;"
+      ]
+    }
+  }
+}

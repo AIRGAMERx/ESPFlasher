@@ -17,7 +17,7 @@ Public Class EditYaml
             sb.AppendLine(line)
         Next
         File.WriteAllText(yamlPath, sb.ToString(), Encoding.UTF8)
-        Form1.generateBin(yamlPath)
+        Main.generateBin(yamlPath)
 
 
     End Sub

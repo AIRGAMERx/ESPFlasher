@@ -7,20 +7,20 @@
         Dim esphomeInstalled As Boolean = CheckCommand("esphome --version")
 
         If pythonInstalled And pipInstalled Then
-            Form1.TSSL_Python.Text = "Python mit PIP wurde gefunden"
-            Form1.TSSL_Python.ForeColor = Color.Green
+            Main.TSSL_Python.Text = "Python mit PIP wurde gefunden"
+            Main.TSSL_Python.ForeColor = Color.Green
         Else
-            Form1.TSSL_Python.Text = "Python mit PIP wurde nicht gefunden, bitte Installieren siehe in Extras"
-            Form1.TSSL_Python.ForeColor = Color.Red
+            Main.TSSL_Python.Text = "Python mit PIP wurde nicht gefunden, bitte Installieren siehe in Extras"
+            Main.TSSL_Python.ForeColor = Color.Red
         End If
 
 
         If esphomeInstalled Then
-            Form1.TSSL_ESPHome.Text = "ESPHome wurde gefunden"
-            Form1.TSSL_ESPHome.ForeColor = Color.Green
+            Main.TSSL_ESPHome.Text = "ESPHome wurde gefunden"
+            Main.TSSL_ESPHome.ForeColor = Color.Green
         Else
-            Form1.TSSL_ESPHome.Text = "ESPHome wurde nicht gefunden, bitte Installieren siehe in Extras"
-            Form1.TSSL_ESPHome.ForeColor = Color.Red
+            Main.TSSL_ESPHome.Text = "ESPHome wurde nicht gefunden, bitte Installieren siehe in Extras"
+            Main.TSSL_ESPHome.ForeColor = Color.Red
         End If
         Return Task.CompletedTask
     End Function
@@ -55,7 +55,7 @@
 
     Public Sub InstallESPHome()
         Try
-            Form1.Cursor = Cursors.WaitCursor
+            Main.Cursor = Cursors.WaitCursor
             Dim psi As New ProcessStartInfo()
             psi.FileName = "cmd.exe"
             psi.Arguments = "/c pip install esphome"
@@ -71,17 +71,17 @@
             proc.WaitForExit()
 
             If proc.ExitCode = 0 Then
-                Form1.Cursor = Cursors.Default
+                Main.Cursor = Cursors.Default
                 MessageBox.Show("✅ ESPHome wurde erfolgreich installiert.", "Erfolg", MessageBoxButtons.OK, MessageBoxIcon.Information)
             Else
-                Form1.Cursor = Cursors.Default
+                Main.Cursor = Cursors.Default
                 MessageBox.Show("❌ Fehler bei der Installation von ESPHome:" & vbCrLf & errorOutput, "Fehler", MessageBoxButtons.OK, MessageBoxIcon.Error)
             End If
         Catch ex As Exception
-            Form1.Cursor = Cursors.Default
+            Main.Cursor = Cursors.Default
             MessageBox.Show("❌ Konnte den Installationsprozess nicht starten:" & vbCrLf & ex.Message, "Fehler", MessageBoxButtons.OK, MessageBoxIcon.Error)
         Finally
-            Form1.Cursor = Cursors.Default
+            Main.Cursor = Cursors.Default
         End Try
     End Sub
 

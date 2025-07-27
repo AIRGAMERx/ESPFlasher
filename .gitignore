@@ -13,9 +13,6 @@
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
 
-# JSON-Dateien generell ausschließen
-*.json
-
 # Mono auto generated files
 mono_crash.*
 
@@ -364,3 +361,70 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# ESPHome Configurator specific
+# Keep these important files (don't ignore them):
+# !sensors.json
+# !displays.json  
+# !templates.json
+# !README.md
+
+# Ignore personal/local configurations
+config.local.json
+settings.local.*
+*.private
+personal_settings.*
+
+# Ignore build output directory but keep source
+build/*/
+!build/README.md
+
+# Ignore user-specific project files
+*.user
+*.local
+
+# Ignore screenshots if too large (optional)
+# screenshots/raw/
+# *.psd
+
+# Windows specific
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Mac specific (falls später Mac-User beitragen)
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# IDE specific
+.vscode/
+.idea/
+
+# Package manager
+packages/
+!packages/repositories.config
+!packages/build/
+
+# Application specific logs
+app.log
+debug.log
+error.log
+
+# ===========================================
+# WICHTIG: Diese Dateien NICHT ignorieren:
+# ===========================================
+# sensors.json      ← MUSS ins Repository!
+# displays.json     ← MUSS ins Repository!
+# templates.json    ← MUSS ins Repository!
+# README.md         ← MUSS ins Repository!
+# LICENSE           ← MUSS ins Repository!
+# *.vb              ← Source Code MUSS rein!
+# *.resx            ← UI Resources MUSS rein!

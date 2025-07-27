@@ -1,0 +1,335 @@
+{
+  "I2C Displays": {
+    "SSD1306": {
+      "platform": "ssd1306_i2c",
+      "bus": [ "i2c" ],
+      "werte": [ "OLED Display 128x64" ],
+      "required": [ "address" ],
+      "optional": [ "reset_pin", "model", "rotation", "contrast" ],
+      "baseconfig": [ "disabled_by_default", "lambda" ],
+      "disable_by_default": [ "True", "False" ],
+      "ui_fields": {
+        "address": {
+          "type": "ComboBox",
+          "values": [ "0x3C", "0x3D" ]
+        },
+        "reset_pin": {
+          "type": "ComboBox",
+          "values": [ "GPIO4", "GPIO5", "GPIO16", "GPIO17" ]
+        },
+        "model": {
+          "type": "ComboBox",
+          "values": [ "SSD1306_128X64", "SSD1306_128X32", "SSD1306_96X16", "SSD1306_64X48" ]
+        },
+        "rotation": {
+          "type": "ComboBox",
+          "values": [ "0�", "90�", "180�", "270�" ]
+        },
+        "contrast": {
+          "type": "NumericUpDown",
+          "min": 0,
+          "max": 100,
+          "step": 1
+        },
+        "lambda": {
+          "type": "TextBox",
+          "multiline": true
+        }
+      },
+      "info": [ "I2C Bus notwendig", "Beliebtes OLED Display" ]
+    },
+
+    "SH1106": {
+      "platform": "sh1106_i2c",
+      "bus": [ "i2c" ],
+      "werte": [ "OLED Display 128x64" ],
+      "required": [ "address" ],
+      "optional": [ "reset_pin", "model", "rotation", "contrast" ],
+      "baseconfig": [ "disabled_by_default", "lambda" ],
+      "disable_by_default": [ "True", "False" ],
+      "ui_fields": {
+        "address": {
+          "type": "ComboBox",
+          "values": [ "0x3C", "0x3D" ]
+        },
+        "reset_pin": {
+          "type": "ComboBox",
+          "values": [ "GPIO4", "GPIO5", "GPIO16", "GPIO17" ]
+        },
+        "model": {
+          "type": "ComboBox",
+          "values": [ "SH1106_128X64", "SH1106_128X32", "SH1106_96X16" ]
+        },
+        "rotation": {
+          "type": "ComboBox",
+          "values": [ "0�", "90�", "180�", "270�" ]
+        },
+        "contrast": {
+          "type": "NumericUpDown",
+          "min": 0,
+          "max": 100,
+          "step": 1
+        },
+        "lambda": {
+          "type": "TextBox",
+          "multiline": true
+        }
+      },
+      "info": [ "I2C Bus notwendig", "Alternative zu SSD1306" ]
+    },
+
+    "LCD_PCF8574": {
+      "platform": "lcd_pcf8574",
+      "bus": [ "i2c" ],
+      "werte": [ "LCD Display mit I2C Backpack" ],
+      "required": ["dimensions" ],
+      "optional": [ "lambda","address" ],
+      "baseconfig": [ "disabled_by_default" ],
+      "disable_by_default": [ "True", "False" ],
+      "ui_fields": {
+        "address": {
+          "type": "ComboBox",
+          "values": [ "","0x27", "0x3F", "0x26", "0x20" ]
+        },
+        "dimensions": {
+          "type": "ComboBox",
+          "values": ["16x2", "20x2", "16x4", "20x4" ]
+        },
+        "lambda": {
+          "type": "TextBox",
+          "multiline": true,
+          "placeholder": "it.print(\"Hello World\");"
+        }
+      },
+      "info": [ "I2C Bus notwendig", "Standard LCD-Größen" ]
+    }
+  },
+
+  "SPI Displays": {
+    "ST7735": {
+      "platform": "st7735",
+      "bus": [ "spi" ],
+      "werte": [ "TFT Display farbig" ],
+      "required": [ "cs_pin", "dc_pin", "reset_pin" ],
+      "optional": [ "model", "rotation", "lambda" ],
+      "baseconfig": [ "disabled_by_default", "lambda" ],
+      "disable_by_default": [ "True", "False" ],
+      "ui_fields": {
+        "cs_pin": {
+          "type": "ComboBox",
+          "values": [ "GPIO5", "GPIO15", "GPIO16" ]
+        },
+        "dc_pin": {
+          "type": "ComboBox",
+          "values": [ "GPIO2", "GPIO4", "GPIO16", "GPIO17" ]
+        },
+        "reset_pin": {
+          "type": "ComboBox",
+          "values": [ "GPIO2", "GPIO4", "GPIO16", "GPIO17" ]
+        },
+        "model": {
+          "type": "ComboBox",
+          "values": [ "REDTAB", "BLACKTAB", "GREENTAB", "INITR_18REDTAB" ]
+        },
+        "rotation": {
+          "type": "ComboBox",
+          "values": [ "0�", "90�", "180�", "270�" ]
+        },
+        "lambda": {
+          "type": "TextBox",
+          "multiline": true
+        }
+      },
+      "info": [ "SPI Bus notwendig", "Kleines Farb-TFT Display" ]
+    },
+
+    "ILI9341": {
+      "platform": "ili9341",
+      "bus": [ "spi" ],
+      "werte": [ "TFT Display 240x320 farbig" ],
+      "required": [ "cs_pin", "dc_pin" ],
+      "optional": [ "reset_pin", "led_pin", "rotation", "lambda" ],
+      "baseconfig": [ "disabled_by_default", "lambda" ],
+      "disable_by_default": [ "True", "False" ],
+      "ui_fields": {
+        "cs_pin": {
+          "type": "ComboBox",
+          "values": [ "GPIO5", "GPIO15", "GPIO16" ]
+        },
+        "dc_pin": {
+          "type": "ComboBox",
+          "values": [ "GPIO2", "GPIO4", "GPIO16", "GPIO17" ]
+        },
+        "reset_pin": {
+          "type": "ComboBox",
+          "values": [ "GPIO2", "GPIO4", "GPIO16", "GPIO17" ]
+        },
+        "led_pin": {
+          "type": "ComboBox",
+          "values": [ "GPIO2", "GPIO4", "GPIO16", "GPIO17" ]
+        },
+        "rotation": {
+          "type": "ComboBox",
+          "values": [ "0�", "90�", "180�", "270�" ]
+        },
+        "lambda": {
+          "type": "TextBox",
+          "multiline": true
+        }
+      },
+      "info": [ "SPI Bus notwendig", "Gro�es Farb-TFT Display" ]
+    }
+  },
+
+  "Segmentanzeigen": {
+    "MAX7219": {
+      "platform": "max7219",
+      "bus": [ "spi" ],
+      "werte": [ "7-Segment Anzeige" ],
+      "required": [ "cs_pin" ],
+      "optional": [ "num_chips", "intensity", "lambda" ],
+      "baseconfig": [ "disabled_by_default", "lambda" ],
+      "disable_by_default": [ "True", "False" ],
+      "ui_fields": {
+        "cs_pin": {
+          "type": "ComboBox",
+          "values": [ "GPIO5", "GPIO15", "GPIO16" ]
+        },
+        "num_chips": {
+          "type": "NumericUpDown",
+          "min": 1,
+          "max": 8,
+          "step": 1
+        },
+        "intensity": {
+          "type": "NumericUpDown",
+          "min": 0,
+          "max": 15,
+          "step": 1
+        },
+        "lambda": {
+          "type": "TextBox",
+          "multiline": true
+        }
+      },
+      "info": [ "SPI Bus notwendig", "Kaskadierbare 7-Segment Anzeigen" ]
+    },
+
+    "TM1637": {
+      "platform": "tm1637",
+      "bus": [ "na" ],
+      "werte": [ "4-stellige 7-Segment Anzeige" ],
+      "required": [ "clk_pin", "dio_pin" ],
+      "optional": [ "intensity", "lambda" ],
+      "baseconfig": [ "disabled_by_default", "lambda" ],
+      "disable_by_default": [ "True", "False" ],
+      "ui_fields": {
+        "clk_pin": {
+          "type": "ComboBox",
+          "values": [ "GPIO2", "GPIO4", "GPIO5", "GPIO12", "GPIO13", "GPIO14" ]
+        },
+        "dio_pin": {
+          "type": "ComboBox",
+          "values": [ "GPIO2", "GPIO4", "GPIO5", "GPIO12", "GPIO13", "GPIO14" ]
+        },
+        "intensity": {
+          "type": "NumericUpDown",
+          "min": 0,
+          "max": 7,
+          "step": 1
+        },
+        "lambda": {
+          "type": "TextBox",
+          "multiline": true
+        }
+      },
+      "info": [ "Zwei GPIO Pins erforderlich", "G�nstige 4-stellige Anzeige" ]
+    }
+  },
+
+  "E-Paper Displays": {
+    "Waveshare_EPaper": {
+      "platform": "waveshare_epaper",
+      "bus": [ "spi" ],
+      "werte": [ "E-Paper Display" ],
+      "required": [ "cs_pin", "dc_pin", "busy_pin", "reset_pin", "model" ],
+      "optional": [ "rotation", "lambda" ],
+      "baseconfig": [ "disabled_by_default", "lambda" ],
+      "disable_by_default": [ "True", "False" ],
+      "ui_fields": {
+        "cs_pin": {
+          "type": "ComboBox",
+          "values": [ "GPIO5", "GPIO15", "GPIO16" ]
+        },
+        "dc_pin": {
+          "type": "ComboBox",
+          "values": [ "GPIO2", "GPIO4", "GPIO16", "GPIO17" ]
+        },
+        "busy_pin": {
+          "type": "ComboBox",
+          "values": [ "GPIO2", "GPIO4", "GPIO16", "GPIO17" ]
+        },
+        "reset_pin": {
+          "type": "ComboBox",
+          "values": [ "GPIO2", "GPIO4", "GPIO16", "GPIO17" ]
+        },
+        "model": {
+          "type": "ComboBox",
+          "values": [ "1.54in", "2.13in", "2.90in", "4.20in", "7.50in" ]
+        },
+        "rotation": {
+          "type": "ComboBox",
+          "values": [ "0�", "90�", "180�", "270�" ]
+        },
+        "lambda": {
+          "type": "TextBox",
+          "multiline": true
+        }
+      },
+      "info": [ "SPI Bus notwendig", "Stromsparende E-Paper Displays" ]
+    }
+  },
+
+  "Addressierbare LEDs": {
+    "FastLED": {
+      "platform": "fastled_clockless",
+      "bus": [ "na" ],
+      "werte": [ "WS2812B LED Streifen" ],
+      "required": [ "chipset", "pin", "num_leds" ],
+      "optional": [ "rgb_order", "max_refresh_rate", "color_correct" ],
+      "baseconfig": [ "disabled_by_default" ],
+      "disable_by_default": [ "True", "False" ],
+      "ui_fields": {
+        "chipset": {
+          "type": "ComboBox",
+          "values": [ "WS2812B", "WS2811", "SK6812", "APA102" ]
+        },
+        "pin": {
+          "type": "ComboBox",
+          "values": [ "GPIO2", "GPIO4", "GPIO5", "GPIO12", "GPIO13", "GPIO14" ]
+        },
+        "num_leds": {
+          "type": "NumericUpDown",
+          "min": 1,
+          "max": 1000,
+          "step": 1
+        },
+        "rgb_order": {
+          "type": "ComboBox",
+          "values": [ "RGB", "RBG", "GRB", "GBR", "BRG", "BGR" ]
+        },
+        "max_refresh_rate": {
+          "type": "NumericUpDown",
+          "min": 1,
+          "max": 1000,
+          "step": 1
+        },
+        "color_correct": {
+          "type": "ComboBox",
+          "values": [ "255, 255, 255", "255, 176, 240", "255, 255, 176" ]
+        }
+      },
+      "info": [ "Ein GPIO Pin erforderlich", "Addressierbare RGB LEDs" ]
+    }
+  }
+}

@@ -1,5 +1,5 @@
 ﻿<Global.Microsoft.VisualBasic.CompilerServices.DesignerGenerated()>
-Partial Class Form1
+Partial Class Main
     Inherits System.Windows.Forms.Form
 
     'Form overrides dispose to clean up the component list.
@@ -91,6 +91,9 @@ Partial Class Form1
         CBB_DisplayGroup = New ComboBox()
         Label42 = New Label()
         DGV_Display = New DataGridView()
+        CM_EditDisplay = New ContextMenuStrip(components)
+        EditDisplay = New ToolStripMenuItem()
+        AdvancedConfigurationDisplay = New ToolStripMenuItem()
         TabPage4 = New TabPage()
         Label18 = New Label()
         pnl_LiveCodingTemplate = New Panel()
@@ -105,9 +108,6 @@ Partial Class Form1
         CBB_TemplateGroup = New ComboBox()
         Label21 = New Label()
         DGV_Templates = New DataGridView()
-        CM_EditDisplay = New ContextMenuStrip(components)
-        EditDisplay = New ToolStripMenuItem()
-        AdvancedConfigurationDisplay = New ToolStripMenuItem()
         MenuStrip1 = New MenuStrip()
         OpenProjects = New ToolStripMenuItem()
         ProjektÖffnenToolStripMenuItem = New ToolStripMenuItem()
@@ -122,6 +122,7 @@ Partial Class Form1
         OTAUpdateToolStripMenuItem = New ToolStripMenuItem()
         EinstellungenToolStripMenuItem = New ToolStripMenuItem()
         BusEinstellungenToolStripMenuItem = New ToolStripMenuItem()
+        BuyMeACoffeeToolStripMenuItem = New ToolStripMenuItem()
         StatusStrip1.SuspendLayout()
         TabControl1.SuspendLayout()
         TabPage1.SuspendLayout()
@@ -133,10 +134,10 @@ Partial Class Form1
         TabPage3.SuspendLayout()
         pnl_LiveCodingDisplay.SuspendLayout()
         CType(DGV_Display, ComponentModel.ISupportInitialize).BeginInit()
+        CM_EditDisplay.SuspendLayout()
         TabPage4.SuspendLayout()
         pnl_LiveCodingTemplate.SuspendLayout()
         CType(DGV_Templates, ComponentModel.ISupportInitialize).BeginInit()
-        CM_EditDisplay.SuspendLayout()
         MenuStrip1.SuspendLayout()
         SuspendLayout()
         ' 
@@ -770,11 +771,29 @@ Partial Class Form1
         ' 
         DGV_Display.BackgroundColor = SystemColors.ControlLight
         DGV_Display.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize
-        DGV_Display.ContextMenuStrip = CM_EditSensor
+        DGV_Display.ContextMenuStrip = CM_EditDisplay
         DGV_Display.Location = New Point(3, 628)
         DGV_Display.Name = "DGV_Display"
         DGV_Display.Size = New Size(811, 170)
         DGV_Display.TabIndex = 14
+        ' 
+        ' CM_EditDisplay
+        ' 
+        CM_EditDisplay.Items.AddRange(New ToolStripItem() {EditDisplay, AdvancedConfigurationDisplay})
+        CM_EditDisplay.Name = "CM_EditSensor"
+        CM_EditDisplay.Size = New Size(203, 48)
+        ' 
+        ' EditDisplay
+        ' 
+        EditDisplay.Name = "EditDisplay"
+        EditDisplay.Size = New Size(202, 22)
+        EditDisplay.Text = "Bearbeiten"
+        ' 
+        ' AdvancedConfigurationDisplay
+        ' 
+        AdvancedConfigurationDisplay.Name = "AdvancedConfigurationDisplay"
+        AdvancedConfigurationDisplay.Size = New Size(202, 22)
+        AdvancedConfigurationDisplay.Text = "Erweiterte Konfiguration"
         ' 
         ' TabPage4
         ' 
@@ -913,24 +932,6 @@ Partial Class Form1
         DGV_Templates.Size = New Size(811, 170)
         DGV_Templates.TabIndex = 29
         ' 
-        ' CM_EditDisplay
-        ' 
-        CM_EditDisplay.Items.AddRange(New ToolStripItem() {EditDisplay, AdvancedConfigurationDisplay})
-        CM_EditDisplay.Name = "CM_EditSensor"
-        CM_EditDisplay.Size = New Size(203, 48)
-        ' 
-        ' EditDisplay
-        ' 
-        EditDisplay.Name = "EditDisplay"
-        EditDisplay.Size = New Size(202, 22)
-        EditDisplay.Text = "Bearbeiten"
-        ' 
-        ' AdvancedConfigurationDisplay
-        ' 
-        AdvancedConfigurationDisplay.Name = "AdvancedConfigurationDisplay"
-        AdvancedConfigurationDisplay.Size = New Size(202, 22)
-        AdvancedConfigurationDisplay.Text = "Erweiterte Konfiguration"
-        ' 
         ' MenuStrip1
         ' 
         MenuStrip1.Items.AddRange(New ToolStripItem() {OpenProjects, TestConnection, ExtrasToolStripMenuItem, EinstellungenToolStripMenuItem})
@@ -980,7 +981,7 @@ Partial Class Form1
         ' 
         ' ExtrasToolStripMenuItem
         ' 
-        ExtrasToolStripMenuItem.DropDownItems.AddRange(New ToolStripItem() {PythonWebseiteÖffnenToolStripMenuItem, OTAUpdateToolStripMenuItem})
+        ExtrasToolStripMenuItem.DropDownItems.AddRange(New ToolStripItem() {PythonWebseiteÖffnenToolStripMenuItem, OTAUpdateToolStripMenuItem, BuyMeACoffeeToolStripMenuItem})
         ExtrasToolStripMenuItem.Name = "ExtrasToolStripMenuItem"
         ExtrasToolStripMenuItem.Size = New Size(49, 20)
         ExtrasToolStripMenuItem.Text = "Extras"
@@ -989,7 +990,7 @@ Partial Class Form1
         ' 
         PythonWebseiteÖffnenToolStripMenuItem.DropDownItems.AddRange(New ToolStripItem() {PythonWebseiteÖffnenToolStripMenuItem1, ESPHomePerPIPInstallierenToolStripMenuItem})
         PythonWebseiteÖffnenToolStripMenuItem.Name = "PythonWebseiteÖffnenToolStripMenuItem"
-        PythonWebseiteÖffnenToolStripMenuItem.Size = New Size(178, 22)
+        PythonWebseiteÖffnenToolStripMenuItem.Size = New Size(180, 22)
         PythonWebseiteÖffnenToolStripMenuItem.Text = "Externe Programme"
         ' 
         ' PythonWebseiteÖffnenToolStripMenuItem1
@@ -1007,7 +1008,7 @@ Partial Class Form1
         ' OTAUpdateToolStripMenuItem
         ' 
         OTAUpdateToolStripMenuItem.Name = "OTAUpdateToolStripMenuItem"
-        OTAUpdateToolStripMenuItem.Size = New Size(178, 22)
+        OTAUpdateToolStripMenuItem.Size = New Size(180, 22)
         OTAUpdateToolStripMenuItem.Text = "OTA Update"
         ' 
         ' EinstellungenToolStripMenuItem
@@ -1023,7 +1024,13 @@ Partial Class Form1
         BusEinstellungenToolStripMenuItem.Size = New Size(167, 22)
         BusEinstellungenToolStripMenuItem.Text = "Bus einstellungen"
         ' 
-        ' Form1
+        ' BuyMeACoffeeToolStripMenuItem
+        ' 
+        BuyMeACoffeeToolStripMenuItem.Name = "BuyMeACoffeeToolStripMenuItem"
+        BuyMeACoffeeToolStripMenuItem.Size = New Size(180, 22)
+        BuyMeACoffeeToolStripMenuItem.Text = "Buy me a Coffee"
+        ' 
+        ' Main
         ' 
         AutoScaleDimensions = New SizeF(7F, 15F)
         AutoScaleMode = AutoScaleMode.Font
@@ -1033,7 +1040,7 @@ Partial Class Form1
         Controls.Add(MenuStrip1)
         FormBorderStyle = FormBorderStyle.FixedSingle
         MainMenuStrip = MenuStrip1
-        Name = "Form1"
+        Name = "Main"
         Text = "ESPFlasher"
         StatusStrip1.ResumeLayout(False)
         StatusStrip1.PerformLayout()
@@ -1051,11 +1058,11 @@ Partial Class Form1
         TabPage3.PerformLayout()
         pnl_LiveCodingDisplay.ResumeLayout(False)
         CType(DGV_Display, ComponentModel.ISupportInitialize).EndInit()
+        CM_EditDisplay.ResumeLayout(False)
         TabPage4.ResumeLayout(False)
         TabPage4.PerformLayout()
         pnl_LiveCodingTemplate.ResumeLayout(False)
         CType(DGV_Templates, ComponentModel.ISupportInitialize).EndInit()
-        CM_EditDisplay.ResumeLayout(False)
         MenuStrip1.ResumeLayout(False)
         MenuStrip1.PerformLayout()
         ResumeLayout(False)
@@ -1161,5 +1168,6 @@ Partial Class Form1
     Friend WithEvents CBB_TemplateGroup As ComboBox
     Friend WithEvents Label21 As Label
     Friend WithEvents DGV_Templates As DataGridView
+    Friend WithEvents BuyMeACoffeeToolStripMenuItem As ToolStripMenuItem
 
 End Class

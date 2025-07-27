@@ -4,10 +4,10 @@ Imports System.Windows.Forms
 Imports System.Windows.Forms.VisualStyles.VisualStyleElement
 
 Module yaml
-    Dim rawName As String = Form1.Txt_ESPName.Text.Trim()
+    Dim rawName As String = Main.Txt_ESPName.Text.Trim()
     Dim name As String = rawName.ToLower().Replace(" ", "-")
     Public yamlPath As String = $"build\{name}\{name}.yaml"
-    Public Sub generateYaml(createbin As Boolean, ByRef ota As Boolean)
+    Public Function GenerateYaml(createbin As Boolean, Optional ota As Boolean = False, Optional freshyamlota As Boolean = False) As Boolean
 
 
         Dim writtenPlatforms As New HashSet(Of String)(StringComparer.OrdinalIgnoreCase)
@@ -15,7 +15,8 @@ Module yaml
 
         If File.Exists(yamlPath) Then
             If MessageBox.Show($"Soll die Datei {name} überschrieben werden?", "Datei bereits vorhanden", MessageBoxButtons.YesNo) = DialogResult.No Then
-                Exit Sub
+                Return False
+                Exit Function
             End If
         End If
 
@@ -28,7 +29,7 @@ Module yaml
         sb.AppendLine()
 
         ' Chiptyp
-        Select Case Form1.CBB_Chipset.SelectedItem?.ToString().ToLower()
+        Select Case Main.CBB_Chipset.SelectedItem?.ToString().ToLower()
             Case "esp32"
                 sb.AppendLine("esp32:")
                 sb.AppendLine("  board: esp32dev")
@@ -37,7 +38,8 @@ Module yaml
                 sb.AppendLine("  board: nodemcuv2")
             Case Else
                 MessageBox.Show("❌ Kein gültiger Chiptyp ausgewählt!", "Fehler")
-                Exit Sub
+                Return False
+                Exit Function
         End Select
         sb.AppendLine()
         sb.AppendLine("logger:")
@@ -45,79 +47,79 @@ Module yaml
 
         ' WLAN
         sb.AppendLine("wifi:")
-        sb.AppendLine($"  ssid: ""{Form1.Txt_WIFISSID.Text}""")
-        sb.AppendLine($"  password: ""{Form1.Txt_WIFIPassword.Text}""")
-        If Form1.CB_ActivateFallback.Checked Then
+        sb.AppendLine($"  ssid: ""{Main.Txt_WIFISSID.Text}""")
+        sb.AppendLine($"  password: ""{Main.Txt_WIFIPassword.Text}""")
+        If Main.CB_ActivateFallback.Checked Then
             sb.AppendLine("  ap:")
-            sb.AppendLine($"    ssid: ""{Form1.Txt_FallbackSSID.Text}""")
-            sb.AppendLine($"    password: ""{Form1.Txt_FallbackPassword.Text}""")
+            sb.AppendLine($"    ssid: ""{Main.Txt_FallbackSSID.Text}""")
+            sb.AppendLine($"    password: ""{Main.Txt_FallbackPassword.Text}""")
         End If
         sb.AppendLine()
 
         ' OTA
-        If Form1.CB_OTA.Checked Then
+        If Main.CB_OTA.Checked Then
             sb.AppendLine("ota:")
             sb.AppendLine("  platform: esphome")
-            If Not String.IsNullOrWhiteSpace(Form1.Txt_OTAPassword.Text) Then
-                sb.AppendLine($"  password: ""{Form1.Txt_OTAPassword.Text}""")
+            If Not String.IsNullOrWhiteSpace(Main.Txt_OTAPassword.Text) Then
+                sb.AppendLine($"  password: ""{Main.Txt_OTAPassword.Text}""")
             End If
             sb.AppendLine()
         End If
 
         ' API
-        If Form1.CB_API.Checked Then
+        If Main.CB_API.Checked Then
             sb.AppendLine("api:")
-            sb.AppendLine($"  password: ""{Form1.Txt_APIPassword.Text}""")
+            sb.AppendLine($"  password: ""{Main.Txt_APIPassword.Text}""")
             sb.AppendLine()
         End If
 
         ' Webserver
-        If Form1.CB_Webserver.Checked Then
+        If Main.CB_Webserver.Checked Then
             sb.AppendLine("web_server:")
-            If Not String.IsNullOrWhiteSpace(Form1.Txt_WebServerPort.Text) Then
-                sb.AppendLine($"  port: {Form1.Txt_WebServerPort.Text}")
+            If Not String.IsNullOrWhiteSpace(Main.Txt_WebServerPort.Text) Then
+                sb.AppendLine($"  port: {Main.Txt_WebServerPort.Text}")
             End If
-            If Form1.CB_WebServerAuth.Checked Then
+            If Main.CB_WebServerAuth.Checked Then
                 sb.AppendLine("  auth:")
-                sb.AppendLine($"    username: ""{Form1.Txt_WebserverUsername.Text}""")
-                sb.AppendLine($"    password: ""{Form1.Txt_WebServerPassword.Text}""")
+                sb.AppendLine($"    username: ""{Main.Txt_WebserverUsername.Text}""")
+                sb.AppendLine($"    password: ""{Main.Txt_WebServerPassword.Text}""")
             End If
             sb.AppendLine()
         End If
-        If Form1.OneWire Then
+        If Main.OneWire Then
             sb.AppendLine("one_wire:")
             sb.AppendLine("  - platform: gpio")
-            If Not String.IsNullOrWhiteSpace(Form1.OneWirePIN) Then sb.AppendLine($"    pin: GPIO{Form1.OneWirePIN}")
-            If Not String.IsNullOrWhiteSpace(Form1.OneWireID) Then sb.AppendLine($"    id: {Form1.OneWireID}")
+            If Not String.IsNullOrWhiteSpace(Main.OneWirePIN) Then sb.AppendLine($"    pin: GPIO{Main.OneWirePIN}")
+            If Not String.IsNullOrWhiteSpace(Main.OneWireID) Then sb.AppendLine($"    id: {Main.OneWireID}")
             sb.AppendLine()
         End If
 
         ' I2C
-        If Form1.i2c Then
-            Dim scan As String = If(Form1.i2cScan, "true", "false")
+        If Main.i2c Then
+            Dim scan As String = If(Main.i2cScan, "true", "false")
             sb.AppendLine("i2c:")
             sb.AppendLine("  - id: i2c_bus")
-            If Not String.IsNullOrWhiteSpace(Form1.i2cSda) Then sb.AppendLine($"    sda: {Form1.i2cSda}")
-            If Not String.IsNullOrWhiteSpace(Form1.i2cScl) Then sb.AppendLine($"    scl: {Form1.i2cScl}")
+            If Not String.IsNullOrWhiteSpace(Main.i2cSda) Then sb.AppendLine($"    sda: {Main.i2cSda}")
+            If Not String.IsNullOrWhiteSpace(Main.i2cScl) Then sb.AppendLine($"    scl: {Main.i2cScl}")
             sb.AppendLine($"    scan: {scan}")
             sb.AppendLine()
         End If
 
         ' SPI
-        If Form1.spi Then
+        If Main.spi Then
             sb.AppendLine("spi:")
-            If Not String.IsNullOrWhiteSpace(Form1.spiclk) Then sb.AppendLine($"  clk_pin: {Form1.spiclk}")
-            If Not String.IsNullOrWhiteSpace(Form1.spimosi) Then sb.AppendLine($"  mosi_pin: {Form1.spimosi}")
-            If Not String.IsNullOrWhiteSpace(Form1.spimiso) Then sb.AppendLine($"  miso_pin: {Form1.spimiso}")
+            If Not String.IsNullOrWhiteSpace(Main.spiclk) Then sb.AppendLine($"  clk_pin: {Main.spiclk}")
+            If Not String.IsNullOrWhiteSpace(Main.spimosi) Then sb.AppendLine($"  mosi_pin: {Main.spimosi}")
+            If Not String.IsNullOrWhiteSpace(Main.spimiso) Then sb.AppendLine($"  miso_pin: {Main.spimiso}")
             sb.AppendLine()
         End If
 
         'UART
-        If Form1.uart Then
+        If Main.uart Then
             sb.AppendLine("uart:")
-            If Not String.IsNullOrWhiteSpace(Form1.uartTx) Then sb.AppendLine($"  tx_pin: {Form1.uartTx}")
-            If Not String.IsNullOrWhiteSpace(Form1.uartRx) Then sb.AppendLine($"  rx_pin: {Form1.uartRx}")
-            If Not String.IsNullOrWhiteSpace(Form1.uartBaudrate) Then sb.AppendLine($"  baud_rate: {Form1.uartBaudrate}")
+            If Not String.IsNullOrWhiteSpace(Main.uartTx) Then sb.AppendLine($"  tx_pin: {Main.uartTx}")
+            If Not String.IsNullOrWhiteSpace(Main.uartRx) Then sb.AppendLine($"  rx_pin: {Main.uartRx}")
+            If Not String.IsNullOrWhiteSpace(Main.uartBaudrate) Then sb.AppendLine($"  baud_rate: {Main.uartBaudrate}")
             sb.AppendLine()
 
         End If
@@ -125,7 +127,7 @@ Module yaml
 
 
         ' Oder einfacher - immer hinzufügen wenn Displays vorhanden:
-        If Form1.DGV_Display.Rows.Count > 0 Then
+        If Main.DGV_Display.Rows.Count > 0 Then
             sb.AppendLine("font:")
             sb.AppendLine("  - file: ""gfonts://Roboto""")
             sb.AppendLine("    id: roboto")
@@ -134,36 +136,43 @@ Module yaml
         End If
 
 
-        ExportSensorsToYaml(sb, Form1.DGV_Sensors)
-        ExportDisplayToYaml(sb, Form1.DGV_Display)
-        ExportTemplateToYaml(sb, Form1.DGV_Templates)
+        ExportSensorsToYaml(sb, Main.DGV_Sensors)
+        ExportDisplayToYaml(sb, Main.DGV_Display)
+        ExportTemplateToYaml(sb, Main.DGV_Templates)
 
 
 
         ' Ordner anlegen und Datei schreiben
         Directory.CreateDirectory($"build\{name}")
         File.WriteAllText(yamlPath, sb.ToString(), Encoding.UTF8)
-        GenerateJsonFromDGV(Form1.DGV_Sensors)
-        GenerateJsonFromDisplayDGV(Form1.DGV_Display)
-        GenerateJsonFromTemplatesDGV(Form1.DGV_Templates)
+        GenerateJsonFromDGV(Main.DGV_Sensors)
+        GenerateJsonFromDisplayDGV(Main.DGV_Display)
+        GenerateJsonFromTemplatesDGV(Main.DGV_Templates)
         GenerateJsonFromGlobalBus()
         If ota Then
             Dim otaForm As New OTA
             otaForm.Yamlpath = yamlPath
-            If Not String.IsNullOrEmpty(Form1.Txt_OTAPassword.Text) Then
-                otaForm.otaPassword = Form1.Txt_OTAPassword.Text
+            If Not String.IsNullOrEmpty(Main.Txt_OTAPassword.Text) Then
+                otaForm.otaPassword = Main.Txt_OTAPassword.Text
             End If
             otaForm.ShowDialog()
-            Exit Sub
+            Return True
+            Exit Function
+        End If
+        If freshyamlota = True Then
+            Return True
         End If
 
-        If createbin Then
-            Form1.generateBin(yamlPath)
-        Else
+        If createbin And freshyamlota = False Then
+            Main.generateBin(yamlPath)
+            Return True
+        ElseIf createbin = False And freshyamlota = False Then
             EditYaml.Show()
-
+            Return True
         End If
-    End Sub
+
+        Return True
+    End Function
     Public Sub GenerateJsonFromDGV(dgv As DataGridView)
         Dim entries As New List(Of DGVEntrie)()
         For i = 0 To dgv.Rows.Count - 1
@@ -176,7 +185,8 @@ Module yaml
                 .platform = If(dgv.Rows(i).Cells(2).Value?.ToString(), ""),
                 .pins = If(dgv.Rows(i).Cells(3).Value?.ToString(), ""),
                 .parameters = If(dgv.Rows(i).Cells(4).Value?.ToString(), ""),
-                .filter = If(dgv.Rows(i).Cells(5).Value?.ToString(), "")
+                .filter = If(dgv.Rows(i).Cells(5).Value?.ToString(), ""),
+                .sensorclass = If(dgv.Rows(i).Cells(6).Value?.ToString(), "")
             }
                 entries.Add(newEntry)
             End If
@@ -186,7 +196,7 @@ Module yaml
 
 
         Dim json As String = Newtonsoft.Json.JsonConvert.SerializeObject(entries, Newtonsoft.Json.Formatting.Indented)
-        Dim jsonPath As String = $"build\{Form1.Txt_ESPName.Text.Trim().ToLower().Replace(" ", "-")}\sensors.json"
+        Dim jsonPath As String = $"build\{Main.Txt_ESPName.Text.Trim().ToLower().Replace(" ", "-")}\sensors.json"
         Directory.CreateDirectory(Path.GetDirectoryName(jsonPath))
         File.WriteAllText(jsonPath, json, Encoding.UTF8)
 
@@ -213,7 +223,7 @@ Module yaml
 
 
         Dim json As String = Newtonsoft.Json.JsonConvert.SerializeObject(entries, Newtonsoft.Json.Formatting.Indented)
-        Dim jsonPath As String = $"build\{Form1.Txt_ESPName.Text.Trim().ToLower().Replace(" ", "-")}\displays.json"
+        Dim jsonPath As String = $"build\{Main.Txt_ESPName.Text.Trim().ToLower().Replace(" ", "-")}\displays.json"
         Directory.CreateDirectory(Path.GetDirectoryName(jsonPath))
         File.WriteAllText(jsonPath, json, Encoding.UTF8)
     End Sub
@@ -241,66 +251,65 @@ Module yaml
 
 
         Dim json As String = Newtonsoft.Json.JsonConvert.SerializeObject(entries, Newtonsoft.Json.Formatting.Indented)
-        Dim jsonPath As String = $"build\{Form1.Txt_ESPName.Text.Trim().ToLower().Replace(" ", "-")}\template.json"
+        Dim jsonPath As String = $"build\{Main.Txt_ESPName.Text.Trim().ToLower().Replace(" ", "-")}\template.json"
         Directory.CreateDirectory(Path.GetDirectoryName(jsonPath))
         File.WriteAllText(jsonPath, json, Encoding.UTF8)
     End Sub
 
     Public Sub GenerateJsonFromGlobalBus()
         Dim globalBus As New GlobalBus() With {
-            .gpiopin = Form1.OneWirePIN,
-            .gpioid = Form1.OneWireID,
-            .onewire = Form1.OneWire,
-            .i2cSda = Form1.i2cSda,
-            .i2cScl = Form1.i2cScl,
-            .i2cScan = Form1.i2cScan,
-            .i2c = Form1.i2c,
-            .spi = Form1.spi,
-            .spiclk = Form1.spiclk,
-            .spimosi = Form1.spimosi,
-            .spimiso = Form1.spimiso
+            .gpiopin = Main.OneWirePIN,
+            .gpioid = Main.OneWireID,
+            .onewire = Main.OneWire,
+            .i2cSda = Main.i2cSda,
+            .i2cScl = Main.i2cScl,
+            .i2cScan = Main.i2cScan,
+            .i2c = Main.i2c,
+            .spi = Main.spi,
+            .spiclk = Main.spiclk,
+            .spimosi = Main.spimosi,
+            .spimiso = Main.spimiso
         }
         Dim json As String = Newtonsoft.Json.JsonConvert.SerializeObject(globalBus, Newtonsoft.Json.Formatting.Indented)
-        Dim jsonPath As String = $"build\{Form1.Txt_ESPName.Text.Trim().ToLower().Replace(" ", "-")}\globalbus.json"
+        Dim jsonPath As String = $"build\{Main.Txt_ESPName.Text.Trim().ToLower().Replace(" ", "-")}\globalbus.json"
         Directory.CreateDirectory(Path.GetDirectoryName(jsonPath))
         File.WriteAllText(jsonPath, json, Encoding.UTF8)
     End Sub
     Function LoadGlobalBusFromJson() As Task
-        Dim jsonPath As String = $"build\{Form1.Txt_ESPName.Text.Trim().ToLower().Replace(" ", "-")}\globalbus.json"
+        Dim jsonPath As String = $"build\{Main.Txt_ESPName.Text.Trim().ToLower().Replace(" ", "-")}\globalbus.json"
         If Not File.Exists(jsonPath) Then
             MsgBox("Globale Bus Daten nicht gefunden")
-            MsgBox(jsonPath.ToString)
             Return Task.CompletedTask
             Exit Function
         End If
         Dim json As String = File.ReadAllText(jsonPath, Encoding.UTF8)
         Dim globalBus As GlobalBus = Newtonsoft.Json.JsonConvert.DeserializeObject(Of GlobalBus)(json)
-        Form1.OneWirePIN = globalBus.gpiopin
-        Form1.OneWireID = globalBus.gpioid
-        Form1.OneWire = globalBus.onewire
-        Form1.i2cSda = globalBus.i2cSda
-        Form1.i2cScl = globalBus.i2cScl
-        Form1.i2cScan = globalBus.i2cScan
-        Form1.i2c = globalBus.i2c
-        Form1.spi = globalBus.spi
-        Form1.spiclk = globalBus.spiclk
-        Form1.spimosi = globalBus.spimosi
-        Form1.spimiso = globalBus.spimiso
-        Form1.uart = globalBus.uart
-        Form1.uartRx = globalBus.uartrx
-        Form1.uartTx = globalBus.uarttx
-        Form1.uartBaudrate = globalBus.uartbaudrate
+        Main.OneWirePIN = globalBus.gpiopin
+        Main.OneWireID = globalBus.gpioid
+        Main.OneWire = globalBus.onewire
+        Main.i2cSda = globalBus.i2cSda
+        Main.i2cScl = globalBus.i2cScl
+        Main.i2cScan = globalBus.i2cScan
+        Main.i2c = globalBus.i2c
+        Main.spi = globalBus.spi
+        Main.spiclk = globalBus.spiclk
+        Main.spimosi = globalBus.spimosi
+        Main.spimiso = globalBus.spimiso
+        Main.uart = globalBus.uart
+        Main.uartRx = globalBus.uartrx
+        Main.uartTx = globalBus.uarttx
+        Main.uartBaudrate = globalBus.uartbaudrate
 
-        Bussettings.Txt_OneWireBusID.Text = Form1.OneWireID
-        Bussettings.Txt_OneWireGPIOPin.Text = Form1.OneWirePIN
-        Bussettings.txt_i2csda.Text = Form1.i2cSda
-        Bussettings.txt_i2cscl.Text = Form1.i2cScl
-        Bussettings.CB_i2cScan.Checked = Form1.i2cScan
-        Bussettings.txt_spiclk.Text = Form1.spiclk
-        Bussettings.txt_spimosi.Text = Form1.spimosi
-        Bussettings.txt_spimiso.Text = Form1.spimiso
-        Bussettings.txt_UartRx.Text = Form1.uartRx
-        Bussettings.txt_UartTx.Text = Form1.uartTx
+        Bussettings.Txt_OneWireBusID.Text = Main.OneWireID
+        Bussettings.Txt_OneWireGPIOPin.Text = Main.OneWirePIN
+        Bussettings.txt_i2csda.Text = Main.i2cSda
+        Bussettings.txt_i2cscl.Text = Main.i2cScl
+        Bussettings.CB_i2cScan.Checked = Main.i2cScan
+        Bussettings.txt_spiclk.Text = Main.spiclk
+        Bussettings.txt_spimosi.Text = Main.spimosi
+        Bussettings.txt_spimiso.Text = Main.spimiso
+        Bussettings.txt_UartRx.Text = Main.uartRx
+        Bussettings.txt_UartTx.Text = Main.uartTx
 
         Return Task.CompletedTask
     End Function
@@ -309,7 +318,7 @@ Module yaml
 
     Function LoadDGVFromJson(dgv As DataGridView) As Task
 
-        Dim jsonPath As String = $"build\{Form1.Txt_ESPName.Text.Trim().ToLower().Replace(" ", "-")}\sensors.json"
+        Dim jsonPath As String = $"build\{Main.Txt_ESPName.Text.Trim().ToLower().Replace(" ", "-")}\sensors.json"
         If Not File.Exists(jsonPath) Then
             Return Task.CompletedTask
             Exit Function
@@ -318,13 +327,13 @@ Module yaml
         Dim entries As List(Of DGVEntrie) = Newtonsoft.Json.JsonConvert.DeserializeObject(Of List(Of DGVEntrie))(json)
         dgv.Rows.Clear()
         For Each entry In entries
-            dgv.Rows.Add(entry.group, entry.type, entry.platform, entry.pins, entry.parameters, entry.filter)
+            dgv.Rows.Add(entry.group, entry.type, entry.platform, entry.pins, entry.parameters, entry.filter, entry.sensorclass)
         Next
         Return Task.CompletedTask
     End Function
     Function LoadDGVDisplayFromJson(dgv As DataGridView) As Task
 
-        Dim jsonPath As String = $"build\{Form1.Txt_ESPName.Text.Trim().ToLower().Replace(" ", "-")}\displays.json"
+        Dim jsonPath As String = $"build\{Main.Txt_ESPName.Text.Trim().ToLower().Replace(" ", "-")}\displays.json"
         If Not File.Exists(jsonPath) Then
             Return Task.CompletedTask
             Exit Function
@@ -340,7 +349,7 @@ Module yaml
 
     Function LoadDGVTemplatesFromJson(dgv As DataGridView) As Task
 
-        Dim jsonPath As String = $"build\{Form1.Txt_ESPName.Text.Trim().ToLower().Replace(" ", "-")}\templates.json"
+        Dim jsonPath As String = $"build\{Main.Txt_ESPName.Text.Trim().ToLower().Replace(" ", "-")}\templates.json"
         If Not File.Exists(jsonPath) Then
             Return Task.CompletedTask
             Exit Function
@@ -366,7 +375,7 @@ Module yaml
             Exit Function
         End If
 
-        For Each ctrl As Control In Form1.TabControl1.Controls
+        For Each ctrl As Control In Main.TabControl1.Controls
             If TypeOf ctrl Is System.Windows.Forms.TextBox Then
                 ctrl.Text = String.Empty
             End If
@@ -402,7 +411,7 @@ Module yaml
             ElseIf trimmed.StartsWith("board:") Then
                 boardTyp = trimmed.Substring(6).Trim()
             ElseIf trimmed.StartsWith("ota:") Then
-                Form1.CB_OTA.Checked = True
+                Main.CB_OTA.Checked = True
                 inOtaBlock = True
                 inApiBlock = False
                 inWifiApBlock = False
@@ -410,7 +419,7 @@ Module yaml
                 inWebAuthBlock = False
                 Continue For
             ElseIf trimmed.StartsWith("api:") Then
-                Form1.CB_API.Checked = True
+                Main.CB_API.Checked = True
                 inApiBlock = True
                 inOtaBlock = False
                 inWifiApBlock = False
@@ -418,7 +427,7 @@ Module yaml
                 inWebAuthBlock = False
                 Continue For
             ElseIf trimmed.StartsWith("ap:") Then
-                Form1.CB_ActivateFallback.Checked = True
+                Main.CB_ActivateFallback.Checked = True
                 inWifiApBlock = True
                 inOtaBlock = False
                 inApiBlock = False
@@ -426,7 +435,7 @@ Module yaml
                 inWebAuthBlock = False
                 Continue For
             ElseIf trimmed.StartsWith("web_server:") Then
-                Form1.CB_Webserver.Checked = True
+                Main.CB_Webserver.Checked = True
                 inWebBlock = True
                 inOtaBlock = False
                 inApiBlock = False
@@ -434,7 +443,7 @@ Module yaml
                 inWebAuthBlock = False
                 Continue For
             ElseIf inWebBlock AndAlso trimmed.StartsWith("auth:") Then
-                Form1.CB_WebServerAuth.Checked = True
+                Main.CB_WebServerAuth.Checked = True
                 inWebAuthBlock = True
                 Continue For
             ElseIf Not line.StartsWith(" ") AndAlso Not line.StartsWith("-") Then
@@ -447,32 +456,32 @@ Module yaml
             End If
 
             ' --- Werte lesen ---
-            If trimmed.StartsWith("name:") AndAlso Not trimmed.Contains("friendly_name") AndAlso String.IsNullOrEmpty(Form1.Txt_ESPName.Text) Then
-                Form1.Txt_ESPName.Text = trimmed.Substring(5).Trim()
+            If trimmed.StartsWith("name:") AndAlso Not trimmed.Contains("friendly_name") AndAlso String.IsNullOrEmpty(Main.Txt_ESPName.Text) Then
+                Main.Txt_ESPName.Text = trimmed.Substring(5).Trim()
             ElseIf inWebAuthBlock AndAlso trimmed.StartsWith("username:") Then
-                Form1.Txt_WebserverUsername.Text = ExtractQuotedValue(trimmed)
+                Main.Txt_WebserverUsername.Text = ExtractQuotedValue(trimmed)
             ElseIf inWebAuthBlock AndAlso trimmed.StartsWith("password:") Then
-                Form1.Txt_WebServerPassword.Text = ExtractQuotedValue(trimmed)
+                Main.Txt_WebServerPassword.Text = ExtractQuotedValue(trimmed)
             ElseIf inOtaBlock AndAlso trimmed.StartsWith("password:") Then
-                Form1.Txt_OTAPassword.Text = ExtractQuotedValue(trimmed)
+                Main.Txt_OTAPassword.Text = ExtractQuotedValue(trimmed)
             ElseIf inApiBlock AndAlso trimmed.StartsWith("password:") Then
-                Form1.Txt_APIPassword.Text = ExtractQuotedValue(trimmed)
+                Main.Txt_APIPassword.Text = ExtractQuotedValue(trimmed)
             ElseIf inWifiApBlock AndAlso trimmed.StartsWith("ssid:") Then
-                Form1.Txt_FallbackSSID.Text = ExtractQuotedValue(trimmed)
+                Main.Txt_FallbackSSID.Text = ExtractQuotedValue(trimmed)
             ElseIf inWifiApBlock AndAlso trimmed.StartsWith("password:") Then
-                Form1.Txt_FallbackPassword.Text = ExtractQuotedValue(trimmed)
+                Main.Txt_FallbackPassword.Text = ExtractQuotedValue(trimmed)
             ElseIf inWebBlock AndAlso trimmed.StartsWith("port:") Then
-                Form1.Txt_WebServerPort.Text = trimmed.Substring(5).Trim()
+                Main.Txt_WebServerPort.Text = trimmed.Substring(5).Trim()
             ElseIf trimmed.StartsWith("ssid:") Then
-                Form1.Txt_WIFISSID.Text = ExtractQuotedValue(trimmed)
+                Main.Txt_WIFISSID.Text = ExtractQuotedValue(trimmed)
             ElseIf trimmed.StartsWith("password:") Then
-                Form1.Txt_WIFIPassword.Text = ExtractQuotedValue(trimmed)
+                Main.Txt_WIFIPassword.Text = ExtractQuotedValue(trimmed)
             End If
         Next
 
         ' Chiptyp setzen
-        If chipTyp <> "" AndAlso Form1.CBB_Chipset.Items.Contains(chipTyp) Then
-            Form1.CBB_Chipset.SelectedItem = chipTyp
+        If chipTyp <> "" AndAlso Main.CBB_Chipset.Items.Contains(chipTyp) Then
+            Main.CBB_Chipset.SelectedItem = chipTyp
         End If
         Return Task.CompletedTask
     End Function

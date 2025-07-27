@@ -3,7 +3,7 @@ Imports System.IO
 Imports System.Runtime.InteropServices
 Imports Newtonsoft.Json.Linq
 
-Public Class Form1
+Public Class Main
     ' Allgemeine Einstellungen
 
     Public clickedRow As Integer = -1
@@ -34,7 +34,7 @@ Public Class Form1
     Public uartTx As String = ""
 
 
-    Async Sub Form1_Load(sender As Object, e As EventArgs) Handles MyBase.Load
+    Async Sub Main_Load(sender As Object, e As EventArgs) Handles MyBase.Load
         System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance)
         Await Init()
 
@@ -221,10 +221,10 @@ Public Class Form1
         TabControl1.SelectedIndex = 0
 
 
-        generateYaml(True, False)
+        GenerateYaml(True, False)
     End Sub
     Private Sub YamlErstellenUndÖffnenToolStripMenuItem_Click(sender As Object, e As EventArgs) Handles YamlErstellenUndÖffnenToolStripMenuItem.Click
-        generateYaml(False, False)
+        GenerateYaml(False, False)
     End Sub
 #End Region
 
@@ -405,7 +405,7 @@ Public Class Form1
         Return Task.CompletedTask
     End Function
     Private Sub OTAUpdateToolStripMenuItem_Click(sender As Object, e As EventArgs) Handles OTAUpdateToolStripMenuItem.Click
-        generateYaml(False, True)
+        GenerateYaml(False, True)
     End Sub
 
 #End Region
@@ -524,10 +524,12 @@ Public Class Form1
         Try
 
             ' Hole Werte aus der DataGridView
-            Dim group = selectedRow.Cells(0).Value.ToString
-            Dim type = selectedRow.Cells(1).Value.ToString
-            Dim platform = selectedRow.Cells(2).Value.ToString
-            Dim param = selectedRow.Cells(4).Value.ToString
+            Dim group = If(selectedRow.Cells(0).Value?.ToString(), "")
+            Dim type = If(selectedRow.Cells(1).Value?.ToString(), "")
+            Dim platform = If(selectedRow.Cells(2).Value?.ToString(), "")
+            Dim pins = If(selectedRow.Cells(3).Value?.ToString(), "")
+            Dim param = If(selectedRow.Cells(4).Value?.ToString(), "")
+            Dim filter = If(selectedRow.Cells(5).Value?.ToString(), "")
 
             ' Setze die ComboBox-Auswahl
             CBB_SensoreGroup.SelectedItem = group
@@ -648,7 +650,7 @@ Public Class Form1
     End Sub
 
     Private Sub AdvancedConfigurationDisplay_Click(sender As Object, e As EventArgs) Handles AdvancedConfigurationDisplay.Click
-        MsgBox("hier")
+
         If DGV_Display.CurrentRow Is Nothing Then Exit Sub
         Dim jsonText = File.ReadAllText(Application.StartupPath & "\displays.json")
         Dim AllDisplayJson = JObject.Parse(jsonText)
@@ -749,16 +751,136 @@ Public Class Form1
 
     Private Sub EditDisplay_Click(sender As Object, e As EventArgs) Handles EditDisplay.Click
 
+        Dim dgv = DGV_Display
+        BTN_StopEditingDisplay.Visible = True
+        clickedRow = If(dgv.SelectedCells.Count > 0, dgv.SelectedCells(0).RowIndex, -1)
+        Dim selectedRow = dgv.CurrentRow
+        If selectedRow Is Nothing Then Exit Sub
+
+        Try
+            ' Hole Werte aus der DataGridView
+            Dim group = If(selectedRow.Cells(0).Value?.ToString(), "")
+            Dim type = If(selectedRow.Cells(1).Value?.ToString(), "")
+            Dim platform = If(selectedRow.Cells(2).Value?.ToString(), "")
+            Dim pins = If(selectedRow.Cells(3).Value?.ToString(), "")
+            Dim param = If(selectedRow.Cells(4).Value?.ToString(), "")
+            Dim filter = If(selectedRow.Cells(5).Value?.ToString(), "")
+
+            ' Setze die ComboBox-Auswahl
+            CBB_DisplayGroup.SelectedItem = group
+            CBB_DisplayType.SelectedItem = type
+
+            ' VERBESSERTES Parameter-Parsing (wie in WriteDisplayBlock)
+            Dim dict As New Dictionary(Of String, String)
+
+            If Not String.IsNullOrEmpty(param) Then
+                ' Robustes manuelles Parsing
+                Dim i As Integer = 0
+                While i < param.Length
+                    ' Finde nächsten Key
+                    Dim keyStart As Integer = i
+                    While i < param.Length AndAlso param(i) <> "="c
+                        i += 1
+                    End While
+
+                    If i >= param.Length Then Exit While
+
+                    Dim key As String = param.Substring(keyStart, i - keyStart).Trim()
+                    i += 1 ' Skip "="
+
+                    ' Finde Wert (bis zum nächsten key=value oder Ende)
+                    Dim valueStart As Integer = i
+                    Dim foundNextKey As Boolean = False
+
+                    While i < param.Length AndAlso Not foundNextKey
+                        If param(i) = ","c Then
+                            ' Prüfe ob nach dem Komma ein neuer Key kommt
+                            Dim j As Integer = i + 1
+                            Dim nextKeyCandidate As String = ""
+                            While j < param.Length AndAlso param(j) <> "="c AndAlso param(j) <> ","c
+                                nextKeyCandidate += param(j)
+                                j += 1
+                            End While
+
+                            If j < param.Length AndAlso param(j) = "="c Then
+                                ' Gefunden: Nächster Key beginnt
+                                foundNextKey = True
+                            Else
+                                ' Komma ist Teil des Wertes
+                                i += 1
+                            End If
+                        Else
+                            i += 1
+                        End If
+                    End While
+
+                    Dim value As String = param.Substring(valueStart, i - valueStart).Trim()
+                    If value.EndsWith(",") Then value = value.Substring(0, value.Length - 1).Trim()
+
+                    dict(key) = value
+                    Console.WriteLine($"DGV Parsed: '{key}' = '{value}'")
+
+                    ' Skip Komma für nächste Iteration
+                    If i < param.Length AndAlso param(i) = ","c Then i += 1
+                End While
+            End If
+
+            ' ✅ RICHTIG: Verwende das Display-Panel!
+            For Each ctrl As Control In pnl_DisplayConfig.Controls
+                Dim fieldName = ctrl.Name.ToLower
+                For Each entry In dict
+                    Dim key = entry.Key.ToLower
+                    Dim value = entry.Value
+
+
+                    ' Prüfe auf Übereinstimmung mit dem Ende des Control-Namens
+                    If fieldName.EndsWith("_" & key) Then
+                        Console.WriteLine($"Match found! Setting {fieldName} = {value}")
+
+                        If TypeOf ctrl Is TextBox Then
+                            CType(ctrl, TextBox).Text = value
+                        ElseIf TypeOf ctrl Is ComboBox Then
+                            Dim cb = CType(ctrl, ComboBox)
+                            If cb.Items.Contains(value) Then
+                                cb.SelectedItem = value
+                            Else
+                                cb.Text = value
+                            End If
+                        ElseIf TypeOf ctrl Is NumericUpDown Then
+                            Dim num As Decimal
+                            If Decimal.TryParse(value.Replace("s", "").Replace("ms", "").Replace("us", "").Replace("V", "").Replace("A", "").Replace("ohm", ""), num) Then
+                                Dim nud = CType(ctrl, NumericUpDown)
+                                If num >= nud.Minimum AndAlso num <= nud.Maximum Then
+                                    nud.Value = num
+                                End If
+                            End If
+                        End If
+                    End If
+                Next
+            Next
+
+        Catch ex As Exception
+            MessageBox.Show("Fehler beim Bearbeiten: " & ex.Message, "Fehler", MessageBoxButtons.OK, MessageBoxIcon.Error)
+            clickedRow = -1
+        End Try
     End Sub
 
-
-
-
-
-
-
-
-
+    Private Sub BuyMeACoffeeToolStripMenuItem_Click(sender As Object, e As EventArgs) Handles BuyMeACoffeeToolStripMenuItem.Click
+        Try
+            Dim url As String = "https://coff.ee/airgamer"
+            Dim psi As New ProcessStartInfo(url) With {
+            .UseShellExecute = True
+        }
+            Process.Start(psi)
+        Catch ex As Exception
+            ' Fallback: URL in Zwischenablage kopieren
+            Clipboard.SetText("https://coff.ee/airgamer")
+            MessageBox.Show("Could not open browser. URL copied to clipboard!",
+                       "Donation Link",
+                       MessageBoxButtons.OK,
+                       MessageBoxIcon.Information)
+        End Try
+    End Sub
 
 
 

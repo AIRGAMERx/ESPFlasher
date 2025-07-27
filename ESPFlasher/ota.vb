@@ -166,10 +166,7 @@ Public Class OTA
             End Using
 
         Catch ex As Exception
-            ' Debug für deine IP
-            If ip.Contains("192.168.178.125") Then
-                Console.WriteLine($"Fehler bei {ip}: {ex.Message}")
-            End If
+
         End Try
     End Function
 
@@ -273,11 +270,22 @@ Public Class OTA
             MessageBox.Show("Bitte gib das OTA-Passwort ein!")
             Return
         End If
+        rtb_compilelog.Clear()
+        rtb_compilelog.AppendText($"Yaml wird neu erstellt{vbCrLf}")
+        Dim yamlfinish = yaml.GenerateYaml(False, False, True)
+        If yamlfinish = False Then
+            rtb_compilelog.AppendText("Fehler beim Erstellen der YAML-Datei! Bitte überprüfe die Konfiguration.")
+            Return
+        End If
+        rtb_compilelog.AppendText("YAML-Datei erfolgreich erstellt!")
+        rtb_compilelog.AppendText(vbCrLf & ".Bin wird neu erstellt" & vbCrLf)
+        Dim binFinish = Await generateBinota(Yamlpath)
+        If binFinish = False Then
+            rtb_compilelog.AppendText("Fehler beim Erstellen der Binärdatei! Bitte überprüfe die Konfiguration.")
+            Return
+        End If
 
-        ' YAML-Pfad von der Hauptform holen
-        Dim yamlPath = yaml.yamlPath ' Oder wie auch immer du den Pfad bekommst
-
-        If Not IO.File.Exists(yamlPath) Then
+        If Not IO.File.Exists(Yamlpath) Then
             MessageBox.Show("Keine YAML-Datei gefunden! Bitte erst Konfiguration generieren.")
             Return
         End If
@@ -338,14 +346,16 @@ Public Class OTA
 
             If proc.ExitCode = 0 Then
                 rtb_compilelog.AppendText("✅ OTA Flash erfolgreich!")
-                If Form1.CB_Webserver.Checked Then
+                If Main.CB_Webserver.Checked Then
                     Dim result As DialogResult = MessageBox.Show("OTA Update erfolgreich!" & vbCrLf & "Webserver im Browser aufrufen?", "Erfolg", MessageBoxButtons.YesNo)
 
                     If result = DialogResult.Yes Then
-                        Process.Start(New ProcessStartInfo($"http://{TB_SelectedIP.Text}:{Form1.Txt_WebServerPort.Text}") With {
+                        Process.Start(New ProcessStartInfo($"http://{TB_SelectedIP.Text}:{Main.Txt_WebServerPort.Text}") With {
                         .UseShellExecute = True
                          })
+                        Exit Function
                     End If
+
 
                 End If
                 MessageBox.Show("OTA Update erfolgreich!", "Erfolg", MessageBoxButtons.OK, MessageBoxIcon.Information)
@@ -429,4 +439,79 @@ Public Class OTA
     Private Sub CB_PortScan_CheckedChanged(sender As Object, e As EventArgs) Handles CB_PortScan.CheckedChanged
 
     End Sub
+
+    Private Async Function generateBinota(yamlPath As String) As Task(Of Boolean)
+        Try
+            Dim psi As New ProcessStartInfo()
+            psi.FileName = "cmd.exe"
+            psi.Arguments = $"/c esphome compile ""{yamlPath}"""
+            psi.UseShellExecute = False
+            psi.RedirectStandardOutput = True
+            psi.RedirectStandardError = True
+            psi.CreateNoWindow = True
+
+            Dim proc As New Process()
+            proc.StartInfo = psi
+
+            ' ✅ WriteToLog Funktion
+            Dim WriteToLog As Action(Of String, Color) = Sub(text, farbe)
+                                                             If rtb_compilelog.IsHandleCreated Then
+                                                                 If rtb_compilelog.InvokeRequired Then
+                                                                     rtb_compilelog.BeginInvoke(Sub()
+                                                                                                    rtb_compilelog.SelectionColor = farbe
+                                                                                                    rtb_compilelog.AppendText(text & vbCrLf)
+                                                                                                    rtb_compilelog.ScrollToCaret()
+                                                                                                End Sub)
+                                                                 Else
+                                                                     rtb_compilelog.SelectionColor = farbe
+                                                                     rtb_compilelog.AppendText(text & vbCrLf)
+                                                                     rtb_compilelog.ScrollToCaret()
+                                                                 End If
+                                                             End If
+                                                         End Sub
+
+            ' ✅ Kompilierung starten Meldung
+            WriteToLog("🔨 Starte ESPHome Kompilierung...", Color.Blue)
+
+            AddHandler proc.OutputDataReceived, Sub(sender, e)
+                                                    If Not String.IsNullOrEmpty(e.Data) Then
+                                                        WriteToLog(e.Data, Color.Black)
+                                                    End If
+                                                End Sub
+
+            AddHandler proc.ErrorDataReceived, Sub(sender, e)
+                                                   If Not String.IsNullOrEmpty(e.Data) Then
+                                                       WriteToLog(e.Data, Color.Red)
+                                                   End If
+                                               End Sub
+
+            proc.Start()
+            proc.BeginOutputReadLine()
+            proc.BeginErrorReadLine()
+
+            Await Task.Run(Sub() proc.WaitForExit())
+
+            Dim exitCode = proc.ExitCode
+
+            proc.Close()
+            proc.Dispose()
+
+            ' ✅ Gespeicherten ExitCode verwenden
+            If exitCode = 0 Then
+                WriteToLog("✅ Kompilierung erfolgreich!", Color.Green)
+                Return True
+            Else
+                WriteToLog("❌ Kompilierung fehlgeschlagen!", Color.Red)
+                Return False
+            End If
+
+        Catch ex As Exception
+            ' ✅ Exception auch mit WriteToLog
+            rtb_compilelog.Invoke(Sub()
+                                      rtb_compilelog.SelectionColor = Color.Red
+                                      rtb_compilelog.AppendText($"❌ Fehler: {ex.Message}" & vbCrLf)
+                                  End Sub)
+            Return False
+        End Try
+    End Function
 End Class

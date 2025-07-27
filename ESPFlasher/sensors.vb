@@ -21,9 +21,9 @@ Module sensors
         sensorData = JObject.Parse(json)
 
         ' Hauptgruppen in ComboBox1 laden
-        Form1.CBB_SensoreGroup.Items.Clear()
+        Main.CBB_SensoreGroup.Items.Clear()
         For Each group In sensorData.Properties()
-            Form1.CBB_SensoreGroup.Items.Add(group.Name)
+            Main.CBB_SensoreGroup.Items.Add(group.Name)
         Next
         Return Task.CompletedTask
     End Function
@@ -176,9 +176,9 @@ Module sensors
             Dim parameterList As New List(Of String)
 
 
-            If Form1.CBB_SensoreGroup.SelectedItem IsNot Nothing AndAlso Form1.CBB_SensorType.SelectedItem IsNot Nothing Then
-                Dim selectedGroup = Form1.CBB_SensoreGroup.SelectedItem.ToString()
-                Dim selectedSensor = Form1.CBB_SensorType.SelectedItem.ToString()
+            If Main.CBB_SensoreGroup.SelectedItem IsNot Nothing AndAlso Main.CBB_SensorType.SelectedItem IsNot Nothing Then
+                Dim selectedGroup = Main.CBB_SensoreGroup.SelectedItem.ToString()
+                Dim selectedSensor = Main.CBB_SensorType.SelectedItem.ToString()
 
                 Dim jsonText = File.ReadAllText(Application.StartupPath & "\sensors.json")
                 Dim jsonData = JObject.Parse(jsonText)
@@ -191,7 +191,7 @@ Module sensors
             End If
 
 
-            For Each ctrl As Control In Form1.pnl_SensorConfig.Controls
+            For Each ctrl As Control In Main.pnl_SensorConfig.Controls
                 Dim value As String = ""
                 Dim fieldName As String = ""
 
@@ -250,12 +250,13 @@ Module sensors
                     sb.AppendLine("sensor:")
             End Select
 
+            ' KORRIGIERT: Richtige Parameter-Reihenfolge
             WriteSensorBlock(sb, sensorData.Platform, sensorData.Parameters, sensorData.Filters)
 
-            Form1.RTB_yamlPreviewSensor.Text = sb.ToString()
+            Main.RTB_yamlPreviewSensor.Text = sb.ToString()
 
         Catch ex As Exception
-            Form1.RTB_yamlPreviewSensor.Text = "# Fehler in der Konfiguration:" & vbCrLf & ex.Message
+            Main.RTB_yamlPreviewSensor.Text = "# Fehler in der Konfiguration:" & vbCrLf & ex.Message
         End Try
     End Sub
     Private Sub ConfigControl_Changed(sender As Object, e As EventArgs)
@@ -313,8 +314,8 @@ Module sensors
                     ElseIf TypeOf ctrl Is ComboBox Then
                         pinValue = CType(ctrl, ComboBox).Text.Trim()
                     End If
-                    MsgBox(Form1.clickedRow.ToString)
-                    If Form1.clickedRow = -1 Then
+
+                    If Main.clickedRow = -1 Then
                         If Not String.IsNullOrEmpty(pinValue) AndAlso helper.pinInUse(pinValue) Then
                             MessageBox.Show($"Der Pin '{pinValue}' wird bereits von einem anderen Sensor verwendet.", "Pin-Konflikt", MessageBoxButtons.OK, MessageBoxIcon.Warning)
                             Return
@@ -367,16 +368,16 @@ Module sensors
 
 
         ' 4. Zeile zum DataGridView hinzufügen
-        If Form1.clickedRow > -1 Then
+        If Main.clickedRow > -1 Then
             Try
-                Dim row As DataGridViewRow = dgv.Rows(Form1.clickedRow)
+                Dim row As DataGridViewRow = dgv.Rows(Main.clickedRow)
                 row.Cells("Gruppe").Value = sensorGroup
                 row.Cells("Typ").Value = sensorType
                 row.Cells("Platform").Value = platform
                 row.Cells("Class").Value = sensorClass
                 row.Cells("Parameter").Value = String.Join(",", parameter)
                 MsgBox("Sensor wurde gespeichert")
-                Form1.clickedRow = -1
+                Main.clickedRow = -1
 
             Catch ex As Exception
 
@@ -386,13 +387,12 @@ Module sensors
 
         End If
 
-        Form1.clickedRow = -1
+        Main.clickedRow = -1
     End Sub
 
     Public Sub ExportSensorsToYaml(sb As StringBuilder, dgv As DataGridView)
         If dgv.Rows.Count = 0 Then Exit Sub
 
-        ' ✅ NEU: Gruppiere nach sensor_class
         Dim sensorGroups As New Dictionary(Of String, List(Of DataGridViewRow))
 
         For Each row As DataGridViewRow In dgv.Rows
@@ -407,12 +407,10 @@ Module sensors
             sensorGroups(sensorClass).Add(row)
         Next
 
-        ' Schreibe Sensoren gruppiert nach Typ
         For Each group In sensorGroups
             Dim sensorType = group.Key
             Dim rows = group.Value
 
-            ' Header für Sensor-Typ
             Select Case sensorType
                 Case "sensor"
                     sb.AppendLine("sensor:")
@@ -422,177 +420,27 @@ Module sensors
                     sb.AppendLine("sensor:")
             End Select
 
-            ' Alle Sensoren dieses Typs
             For Each row In rows
                 Dim platform = row.Cells("Platform").Value?.ToString()?.Trim()
                 Dim paramString = row.Cells("Parameter").Value?.ToString()?.Trim()
                 Dim filterString = row.Cells("Filter").Value?.ToString()?.Trim()
+                Dim sensorClass = row.Cells("Class").Value?.ToString()?.Trim()
 
                 If String.IsNullOrEmpty(platform) Then Continue For
 
-                WriteSensorBlock(sb, platform, paramString, filterString)
+                ' KORRIGIERT: Richtige Parameter-Reihenfolge
+                WriteUniversalBlockWithSensorType(sb, sensorClass, platform, paramString, filterString)
             Next
 
-            sb.AppendLine() ' Leerzeile zwischen Sensor-Typen
+            sb.AppendLine()
         Next
     End Sub
 
 
     Private Sub WriteSensorBlock(sb As StringBuilder, platform As String, paramString As String, filterCellContent As String)
-        sb.AppendLine($"  - platform: {platform}")
-
-        ' Key-Value-Paare aus paramString
-        Dim flatDict As New Dictionary(Of String, String)
-        For Each part In paramString.Split(","c)
-            Dim keyVal = part.Trim().Split("="c, 2)
-            If keyVal.Length = 2 Then
-                flatDict(keyVal(0).Trim()) = keyVal(1).Trim()
-            End If
-        Next
-
-        ' Vorbereitung verschachtelte Felder
-        Dim nestedDict As New Dictionary(Of String, Dictionary(Of String, String))
-        Dim simpleKeys As New Dictionary(Of String, String)
-
-        Dim flatKeys As New HashSet(Of String) From {
-        "update_interval", "timeout", "accuracy_decimals", "echo_pin", "trigger_pin", "pulse_time",
-        "shunt_resistance", "max_voltage", "max_current", "bus_voltage", "shunt_voltage",
-        "cs_pin", "internal_filter", "unit_of_measurement", "accuracy_decimals", "device_class"
-    }
-
-        Dim accuracyFixups = New Dictionary(Of String, Tuple(Of String, String)) From {
-        {"temperature_accuracy_decimals", Tuple.Create("temperature", "accuracy_decimals")},
-        {"humidity_accuracy_decimals", Tuple.Create("humidity", "accuracy_decimals")}
-    }
-
-        For Each kvp In flatDict
-            Dim keyLower = kvp.Key.ToLower()
-
-            If accuracyFixups.ContainsKey(keyLower) Then
-                Dim target = accuracyFixups(keyLower)
-                If Not nestedDict.ContainsKey(target.Item1) Then nestedDict(target.Item1) = New Dictionary(Of String, String)
-                nestedDict(target.Item1)(target.Item2) = kvp.Value
-                Continue For
-            End If
-
-            If kvp.Key.Contains("_") AndAlso Not flatKeys.Contains(keyLower) Then
-                Dim parts = kvp.Key.Split("_"c)
-                If parts.Length >= 2 Then
-                    Dim group = String.Join("_", parts.Take(parts.Length - 1)).Trim()
-                    Dim subkey = parts.Last().Trim()
-                    If Not nestedDict.ContainsKey(group) Then nestedDict(group) = New Dictionary(Of String, String)
-                    nestedDict(group)(subkey) = kvp.Value
-                Else
-                    simpleKeys(kvp.Key) = kvp.Value
-                End If
-            Else
-                simpleKeys(kvp.Key) = kvp.Value
-            End If
-        Next
-
-        ' Count Mode
-        If nestedDict.ContainsKey("count_mode_rising") OrElse nestedDict.ContainsKey("count_mode_falling") Then
-            sb.AppendLine("    count_mode:")
-            If nestedDict.ContainsKey("count_mode_rising") Then
-                For Each inner In nestedDict("count_mode_rising")
-                    sb.AppendLine($"      rising_edge: {inner.Value}")
-                Next
-                nestedDict.Remove("count_mode_rising")
-            End If
-            If nestedDict.ContainsKey("count_mode_falling") Then
-                For Each inner In nestedDict("count_mode_falling")
-                    sb.AppendLine($"      falling_edge: {inner.Value}")
-                Next
-                nestedDict.Remove("count_mode_falling")
-            End If
-        End If
-
-        ' Einheiten
-        Dim unit_s = New HashSet(Of String) From {"update_interval", "timeout"}
-        Dim unit_ms = New HashSet(Of String) From {"pulse_time"}
-        Dim unit_v = New HashSet(Of String) From {"max_voltage"}
-        Dim unit_a = New HashSet(Of String) From {"max_current"}
-        Dim unit_ohm = New HashSet(Of String) From {"shunt_resistance"}
-        Dim unit_us = New HashSet(Of String) From {"internal_filter"}
-
-        ' Flache Felder
-        For Each kvp In simpleKeys
-            Dim key = kvp.Key
-            Dim val = kvp.Value
-
-            If unit_s.Contains(key) Then
-                sb.AppendLine($"    {key}: {val}s")
-            ElseIf unit_ms.Contains(key) Then
-                sb.AppendLine($"    {key}: {val}ms")
-            ElseIf unit_v.Contains(key) Then
-                sb.AppendLine($"    {key}: {val}V")
-            ElseIf unit_a.Contains(key) Then
-                sb.AppendLine($"    {key}: {val}A")
-            ElseIf unit_ohm.Contains(key) Then
-                sb.AppendLine($"    {key}: {val} ohm")
-            ElseIf unit_us.Contains(key) Then
-                sb.AppendLine($"    {key}: {val}us")
-            Else
-                sb.AppendLine($"    {key}: {val}")
-            End If
-        Next
-
-        ' Filter als JSON auswerten
-        Dim filterData As JObject = Nothing
-        If Not String.IsNullOrWhiteSpace(filterCellContent) Then
-            Try
-                filterData = JObject.Parse(filterCellContent)
-            Catch ex As Exception
-                sb.AppendLine("    # Fehler beim Parsen der Filterkonfiguration")
-            End Try
-        End If
-
-        ' Nested Felder schreiben (inkl. Filter)
-        For Each outer In nestedDict
-            sb.AppendLine($"    {outer.Key}:")
-            For Each inner In outer.Value
-                sb.AppendLine($"      {inner.Key}: {inner.Value}")
-            Next
-
-            ' Filter für diesen Block?
-            If filterData IsNot Nothing AndAlso filterData.ContainsKey(outer.Key) Then
-                sb.AppendLine("      filters:")
-                For Each f In CType(filterData(outer.Key), JObject).Properties()
-                    Dim val = f.Value.ToString().Trim()
-                    If val.Contains(Environment.NewLine) Then
-                        sb.AppendLine($"        - {f.Name}:")
-                        For Each line In val.Split({Environment.NewLine}, StringSplitOptions.RemoveEmptyEntries)
-                            sb.AppendLine($"            {line.Trim()}")
-                        Next
-                    Else
-                        sb.AppendLine($"        - {f.Name}: {val}")
-                    End If
-                Next
-            End If
-        Next
-
-        ' Falls keine Nested vorhanden → globaler Filterblock
-        If nestedDict.Count = 0 AndAlso filterData IsNot Nothing AndAlso filterData.ContainsKey("global") Then
-            sb.AppendLine("    filters:")
-            For Each f In CType(filterData("global"), JObject).Properties()
-                Dim val = f.Value.ToString().Trim()
-                If val.Contains(Environment.NewLine) Then
-                    sb.AppendLine($"      - {f.Name}:")
-                    For Each line In val.Split({Environment.NewLine}, StringSplitOptions.RemoveEmptyEntries)
-                        sb.AppendLine($"          {line.Trim()}")
-                    Next
-                Else
-                    sb.AppendLine($"      - {f.Name}: {val}")
-                End If
-            Next
-        End If
-
-        sb.AppendLine()
+        ' Verwende das universelle System
+        WriteUniversalBlockWithSensorType(sb, "sensor", platform, paramString, filterCellContent)
     End Sub
-
-
-
-
 
 
 End Module

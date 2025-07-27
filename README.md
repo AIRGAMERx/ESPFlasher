@@ -45,6 +45,7 @@
 - Template system for quick setups
 - Project management
 - OTA updates support
+- Automatic ESP device discovery on network with port configuration
 
 ### 🏠 **Home Assistant Ready**
 - Perfect ESPHome integration

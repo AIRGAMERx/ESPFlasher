@@ -2,7 +2,7 @@
   "Template Sensoren": {
     "Berechnung": {
       "platform": "template",
-      "sensor_class": "sensor",
+      "sensor_class": "template",
       "werte": [ "Berechneter Wert basierend auf anderen Sensoren" ],
       "required": [ "name", "lambda" ],
       "optional": [ "unit_of_measurement", "accuracy_decimals", "device_class", "state_class", "icon", "update_interval" ],

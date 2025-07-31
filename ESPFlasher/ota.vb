@@ -293,7 +293,7 @@ Public Class OTA
         BTN_FlashOTA.Enabled = False
         BTN_FlashOTA.Text = "Flashe via OTA..."
 
-        ' Log-TextBox für Ausgabe (falls du eine hast)
+
         Await FlashViaOTA(yamlPath, TB_SelectedIP.Text)
 
         BTN_FlashOTA.Enabled = True

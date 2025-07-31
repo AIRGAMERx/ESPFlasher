@@ -120,9 +120,9 @@ Partial Class Main
         PythonWebseiteÖffnenToolStripMenuItem1 = New ToolStripMenuItem()
         ESPHomePerPIPInstallierenToolStripMenuItem = New ToolStripMenuItem()
         OTAUpdateToolStripMenuItem = New ToolStripMenuItem()
+        BuyMeACoffeeToolStripMenuItem = New ToolStripMenuItem()
         EinstellungenToolStripMenuItem = New ToolStripMenuItem()
         BusEinstellungenToolStripMenuItem = New ToolStripMenuItem()
-        BuyMeACoffeeToolStripMenuItem = New ToolStripMenuItem()
         StatusStrip1.SuspendLayout()
         TabControl1.SuspendLayout()
         TabPage1.SuspendLayout()
@@ -990,7 +990,7 @@ Partial Class Main
         ' 
         PythonWebseiteÖffnenToolStripMenuItem.DropDownItems.AddRange(New ToolStripItem() {PythonWebseiteÖffnenToolStripMenuItem1, ESPHomePerPIPInstallierenToolStripMenuItem})
         PythonWebseiteÖffnenToolStripMenuItem.Name = "PythonWebseiteÖffnenToolStripMenuItem"
-        PythonWebseiteÖffnenToolStripMenuItem.Size = New Size(180, 22)
+        PythonWebseiteÖffnenToolStripMenuItem.Size = New Size(178, 22)
         PythonWebseiteÖffnenToolStripMenuItem.Text = "Externe Programme"
         ' 
         ' PythonWebseiteÖffnenToolStripMenuItem1
@@ -1008,8 +1008,14 @@ Partial Class Main
         ' OTAUpdateToolStripMenuItem
         ' 
         OTAUpdateToolStripMenuItem.Name = "OTAUpdateToolStripMenuItem"
-        OTAUpdateToolStripMenuItem.Size = New Size(180, 22)
+        OTAUpdateToolStripMenuItem.Size = New Size(178, 22)
         OTAUpdateToolStripMenuItem.Text = "OTA Update"
+        ' 
+        ' BuyMeACoffeeToolStripMenuItem
+        ' 
+        BuyMeACoffeeToolStripMenuItem.Name = "BuyMeACoffeeToolStripMenuItem"
+        BuyMeACoffeeToolStripMenuItem.Size = New Size(178, 22)
+        BuyMeACoffeeToolStripMenuItem.Text = "Buy me a Coffee"
         ' 
         ' EinstellungenToolStripMenuItem
         ' 
@@ -1023,12 +1029,6 @@ Partial Class Main
         BusEinstellungenToolStripMenuItem.Name = "BusEinstellungenToolStripMenuItem"
         BusEinstellungenToolStripMenuItem.Size = New Size(167, 22)
         BusEinstellungenToolStripMenuItem.Text = "Bus einstellungen"
-        ' 
-        ' BuyMeACoffeeToolStripMenuItem
-        ' 
-        BuyMeACoffeeToolStripMenuItem.Name = "BuyMeACoffeeToolStripMenuItem"
-        BuyMeACoffeeToolStripMenuItem.Size = New Size(180, 22)
-        BuyMeACoffeeToolStripMenuItem.Text = "Buy me a Coffee"
         ' 
         ' Main
         ' 

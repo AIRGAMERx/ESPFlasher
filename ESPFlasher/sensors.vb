@@ -250,8 +250,8 @@ Module sensors
                     sb.AppendLine("sensor:")
             End Select
 
-            ' KORRIGIERT: Richtige Parameter-Reihenfolge
-            WriteSensorBlock(sb, sensorData.Platform, sensorData.Parameters, sensorData.Filters)
+            ' ✅ GEÄNDERT: Lambda-Parameter hinzugefügt (leer für Sensoren)
+            WriteUniversalBlockWithSensorType(sb, sensorData.SensorClass, sensorData.Platform, sensorData.Parameters, sensorData.Filters, "")
 
             Main.RTB_yamlPreviewSensor.Text = sb.ToString()
 
@@ -276,9 +276,6 @@ Module sensors
 
     Public Sub AddSensorToGrid(sensorGroup As String, sensorType As String, sensorInfo As JObject, panelSensor As Panel, dgv As DataGridView)
 
-
-
-
         ' 1. Pflichtfelder prüfen
         If sensorInfo("required") IsNot Nothing Then
             For Each reqField In sensorInfo("required")
@@ -297,7 +294,6 @@ Module sensors
                     Case TypeOf ctrl Is ComboBox
                         isEmpty = CType(ctrl, ComboBox).SelectedIndex = -1
                     Case TypeOf ctrl Is NumericUpDown
-                        ' Optional: 0 als leer definieren
                         isEmpty = False ' Hier bewusst erlaubt
                 End Select
 
@@ -305,6 +301,7 @@ Module sensors
                     MessageBox.Show($"Das Pflichtfeld '{fieldName}' muss ausgefüllt werden.", "Fehler", MessageBoxButtons.OK, MessageBoxIcon.Warning)
                     Return
                 End If
+
                 Dim pinFields = New HashSet(Of String) From {"pin", "trigger_pin", "echo_pin", "cs_pin"}
                 If pinFields.Contains(fieldName.ToLower()) Then
                     Dim pinValue As String = ""
@@ -366,7 +363,6 @@ Module sensors
             sensorClass = sensorInfo("sensor_class").ToString()
         End If
 
-
         ' 4. Zeile zum DataGridView hinzufügen
         If Main.clickedRow > -1 Then
             Try
@@ -376,6 +372,8 @@ Module sensors
                 row.Cells("Platform").Value = platform
                 row.Cells("Class").Value = sensorClass
                 row.Cells("Parameter").Value = String.Join(",", parameter)
+                row.Cells("Filter").Value = "" ' Filter für Sensoren (falls verwendet)
+                row.Cells("Lambda").Value = "" ' Lambda bleibt leer für normale Sensoren
                 MsgBox("Sensor wurde gespeichert")
                 Main.clickedRow = -1
 
@@ -383,8 +381,8 @@ Module sensors
 
             End Try
         Else
-            dgv.Rows.Add(sensorGroup, sensorType, platform, "", String.Join(", ", parameter), "", sensorClass)
-
+            ' ✅ GEÄNDERT: Lambda-Spalte hinzugefügt
+            dgv.Rows.Add(sensorGroup, sensorType, platform, "", String.Join(",", parameter), "", sensorClass, "")
         End If
 
         Main.clickedRow = -1
@@ -425,11 +423,12 @@ Module sensors
                 Dim paramString = row.Cells("Parameter").Value?.ToString()?.Trim()
                 Dim filterString = row.Cells("Filter").Value?.ToString()?.Trim()
                 Dim sensorClass = row.Cells("Class").Value?.ToString()?.Trim()
+                Dim lambdaContent = row.Cells("Lambda").Value?.ToString()?.Trim()
 
                 If String.IsNullOrEmpty(platform) Then Continue For
 
-                ' KORRIGIERT: Richtige Parameter-Reihenfolge
-                WriteUniversalBlockWithSensorType(sb, sensorClass, platform, paramString, filterString)
+                ' ✅ GEÄNDERT: Lambda-Parameter hinzugefügt
+                WriteUniversalBlockWithSensorType(sb, sensorClass, platform, paramString, filterString, lambdaContent)
             Next
 
             sb.AppendLine()

@@ -18,7 +18,9 @@ Module UnifiedWriteBlock
     ' ERWEITERTE WRITEBLOCK MIT SENSOR-TYP-UNTERSCHEIDUNG
     ' ========================================
     Public Sub WriteUniversalBlockWithSensorType(sb As StringBuilder, sensorClass As String, platform As String,
-                                                 paramString As String, filterOrLambdaContent As String)
+                                                 paramString As String, filterOrLambdaContent As String, Optional lambdaCellContent As String = "")
+
+
 
         ' Bestimme BlockType basierend auf sensorClass
         Dim blockType As BlockType
@@ -35,34 +37,57 @@ Module UnifiedWriteBlock
                 blockType = BlockType.Sensor ' Standard
         End Select
 
+
+
         ' Verwende die normale WriteUniversalBlock
-        WriteUniversalBlock(sb, blockType, platform, paramString, filterOrLambdaContent)
+        WriteUniversalBlock(sb, blockType, platform, paramString, filterOrLambdaContent, lambdaCellContent)
     End Sub
 
     ' ========================================
     ' HAUPTFUNKTION - UNIVERSELLE WRITEBLOCK
     ' ========================================
     Public Sub WriteUniversalBlock(sb As StringBuilder, blockType As BlockType, platform As String,
-                                   paramString As String, filterOrLambdaContent As String)
+                               paramString As String, filterContent As String, Optional lambdaCellContent As String = "")
+
+
 
         sb.AppendLine($"  - platform: {platform}")
 
         ' ROBUSTES Parameter-Parsing (einheitlich für alle)
         Dim flatDict = ParseParameterString(paramString)
 
-        ' Auto-Korrektur für Code-Inhalte anwenden
-        Dim correctedContent = ApplyCodeCorrection(filterOrLambdaContent, blockType)
-
         ' Block-spezifische Verarbeitung
         Select Case blockType
             Case BlockType.Sensor, BlockType.BinarySensor
-                WriteSensorSpecificFields(sb, flatDict, correctedContent)
+
+                WriteSensorSpecificFields(sb, flatDict, filterContent)
 
             Case BlockType.Display
-                WriteDisplaySpecificFields(sb, flatDict, correctedContent)
+
+                ' Für Displays: Lambda aus separater Spalte verwenden
+                Dim displayLambda = If(String.IsNullOrEmpty(lambdaCellContent), "", lambdaCellContent)
+                WriteDisplaySpecificFields(sb, flatDict, displayLambda)
 
             Case BlockType.Template, BlockType.TextSensor, BlockType.Switch
-                WriteTemplateSpecificFields(sb, flatDict, correctedContent)
+
+                Dim templateLambda As String = ""
+
+                ' Priorität: lambdaCellContent (aus Lambda-Spalte) vor filterContent
+                If Not String.IsNullOrEmpty(lambdaCellContent) Then
+                    templateLambda = lambdaCellContent
+
+                ElseIf Not String.IsNullOrEmpty(filterContent) Then
+                    templateLambda = filterContent
+
+                Else
+
+                End If
+
+
+                WriteTemplateSpecificFields(sb, flatDict, templateLambda)
+
+            Case Else
+                MsgBox($"UNBEKANNTER BlockType: {blockType}")
         End Select
 
         sb.AppendLine()
@@ -126,104 +151,6 @@ Module UnifiedWriteBlock
     End Function
 
     ' ========================================
-    ' CODE-KORREKTUR
-    ' ========================================
-    Private Function ApplyCodeCorrection(content As String, blockType As BlockType) As String
-        If String.IsNullOrWhiteSpace(content) Then Return content
-
-        Select Case blockType
-            Case BlockType.Display
-                Return ProcessCodeCorrection(content, "lambda")
-            Case BlockType.Template, BlockType.TextSensor, BlockType.Switch
-                Return ProcessCodeCorrection(content, "template")
-            Case BlockType.Sensor, BlockType.BinarySensor
-                Return ProcessCodeCorrection(content, "sensor")
-            Case Else
-                Return ProcessCodeCorrection(content, "general")
-        End Select
-    End Function
-
-    Private Function ProcessCodeCorrection(content As String, codeType As String) As String
-        If String.IsNullOrWhiteSpace(content) Then Return content
-
-        Dim corrected As String = content
-
-        ' 1. Entferne problematische °-Zeichen
-        corrected = corrected.Replace("°C", "C")
-        corrected = corrected.Replace("°F", "F")
-        corrected = corrected.Replace("°", "")
-
-        ' 2. Korrigiere häufige Tippfehler bei Funktionen
-        corrected = Regex.Replace(corrected, "\bif\.print\b", "it.print", RegexOptions.IgnoreCase)
-        corrected = Regex.Replace(corrected, "\bif\.printf\b", "it.printf", RegexOptions.IgnoreCase)
-        corrected = Regex.Replace(corrected, "\bit\.hast_state\b", "it.has_state", RegexOptions.IgnoreCase)
-        corrected = Regex.Replace(corrected, "\bhast_state\b", "has_state", RegexOptions.IgnoreCase)
-
-        ' 3. Korrigiere printf Format-Strings
-        corrected = Regex.Replace(corrected, "%(\d+)f", "%.${1}f") ' %1f -> %.1f
-        corrected = Regex.Replace(corrected, "%f\b", "%.1f") ' %f -> %.1f
-
-        ' 4. Füge fehlende Anführungszeichen hinzu
-        corrected = Regex.Replace(corrected, "it\.print\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*([^""][^,)]+)\s*\)",
-                                 "it.print($1, $2, ""$3"")")
-
-        ' 5. Korrigiere fehlende Semikolons
-        Dim lines = corrected.Split({Environment.NewLine, vbCrLf, vbLf}, StringSplitOptions.None)
-        For i = 0 To lines.Length - 1
-            Dim line = lines(i).Trim()
-            If Not String.IsNullOrEmpty(line) AndAlso
-               Not line.EndsWith(";") AndAlso
-               Not line.EndsWith("{") AndAlso
-               Not line.EndsWith("}") AndAlso
-               Not line.StartsWith("//") AndAlso
-               Not line.StartsWith("/*") AndAlso
-               Not line.Contains("if (") AndAlso
-               Not line.Contains("} else {") Then
-                lines(i) = lines(i) + ";"
-            End If
-        Next
-        corrected = String.Join(Environment.NewLine, lines)
-
-        ' 6. Automatische Einrückung
-        corrected = FormatCppIndentation(corrected)
-
-        Return corrected
-    End Function
-
-    Private Function FormatCppIndentation(code As String) As String
-        Dim lines = code.Split({Environment.NewLine, vbCrLf, vbLf}, StringSplitOptions.None)
-        Dim result As New List(Of String)
-        Dim indentLevel As Integer = 0
-        Dim indentSize As Integer = 2
-
-        For Each line In lines
-            Dim trimmedLine = line.Trim()
-
-            If String.IsNullOrWhiteSpace(trimmedLine) OrElse
-               trimmedLine.StartsWith("//") OrElse
-               trimmedLine.StartsWith("/*") Then
-                result.Add(trimmedLine)
-                Continue For
-            End If
-
-            If trimmedLine.StartsWith("}") OrElse trimmedLine.Contains("} else") Then
-                indentLevel = Math.Max(0, indentLevel - 1)
-            End If
-
-            Dim indent As String = New String(" "c, indentLevel * indentSize)
-            result.Add(indent + trimmedLine)
-
-            If trimmedLine.EndsWith("{") OrElse
-               trimmedLine.Contains("if (") OrElse
-               trimmedLine.Contains("} else {") Then
-                indentLevel += 1
-            End If
-        Next
-
-        Return String.Join(Environment.NewLine, result)
-    End Function
-
-    ' ========================================
     ' SENSOR-SPEZIFISCHE VERARBEITUNG
     ' ========================================
     Private Sub WriteSensorSpecificFields(sb As StringBuilder, flatDict As Dictionary(Of String, String),
@@ -284,7 +211,7 @@ Module UnifiedWriteBlock
         ' Nested-Felder schreiben
         WriteNestedFields(sb, nestedDict)
 
-        ' Lambda schreiben
+        ' Lambda schreiben (aus separater Spalte)
         If Not String.IsNullOrWhiteSpace(lambdaContent) Then
             WriteLambdaBlock(sb, lambdaContent)
         End If
@@ -326,8 +253,13 @@ Module UnifiedWriteBlock
     ' ========================================
     ' TEMPLATE-SPEZIFISCHE VERARBEITUNG
     ' ========================================
+    ' ========================================
+    ' TEMPLATE-SPEZIFISCHE VERARBEITUNG (GEFIXT)
+    ' ========================================
     Private Sub WriteTemplateSpecificFields(sb As StringBuilder, flatDict As Dictionary(Of String, String),
-                                           lambdaContent As String)
+                                       lambdaContent As String)
+
+
 
         Dim templateFields = GetTemplateSpecificFields()
 
@@ -378,10 +310,12 @@ Module UnifiedWriteBlock
             End If
         Next
 
-        ' Lambda schreiben
         If Not String.IsNullOrWhiteSpace(lambdaContent) Then
             WriteLambdaBlock(sb, lambdaContent)
         End If
+
+
+
     End Sub
 
     ' ========================================
@@ -391,7 +325,7 @@ Module UnifiedWriteBlock
         Return New HashSet(Of String) From {
             "update_interval", "timeout", "accuracy_decimals", "echo_pin", "trigger_pin", "pulse_time",
             "shunt_resistance", "max_voltage", "max_current", "bus_voltage", "shunt_voltage",
-            "cs_pin", "internal_filter", "unit_of_measurement", "device_class", "pin", "name"
+            "cs_pin", "internal_filter", "unit_of_measurement", "device_class", "pin", "name", "state_class"
         }
     End Function
 
@@ -400,7 +334,7 @@ Module UnifiedWriteBlock
             "address", "reset_pin", "cs_pin", "dc_pin", "busy_pin", "led_pin",
             "model", "rotation", "contrast", "intensity", "measurement_duration",
             "clk_pin", "dio_pin", "pin", "chipset", "num_leds", "rgb_order",
-            "max_refresh_rate", "color_correct", "lambda", "dimensions"
+            "max_refresh_rate", "color_correct", "dimensions"
         }
     End Function
 
@@ -519,13 +453,304 @@ Module UnifiedWriteBlock
         End Try
     End Sub
 
+    ' ========================================
+    ' LAMBDA-VALIDIERUNG UND -SCHREIBUNG
+    ' ========================================
     Private Sub WriteLambdaBlock(sb As StringBuilder, lambdaContent As String)
+
+        ' Validate lambda syntax before writing
+        Dim validationResult = ValidateLambdaSyntax(lambdaContent)
+
+
+
+        If validationResult.Errors.Any() Then
+
+            sb.AppendLine("    # LAMBDA ERRORS - WILL NOT COMPILE:")
+            For Each errorMsg In validationResult.Errors
+                sb.AppendLine($"    # ERROR: {errorMsg}")
+            Next
+            sb.AppendLine("    # lambda: |- # DISABLED DUE TO ERRORS")
+            Return
+        End If
+
         sb.AppendLine("    lambda: |-")
         For Each line In lambdaContent.Split({vbCrLf, vbLf, Environment.NewLine}, StringSplitOptions.None)
             If String.IsNullOrWhiteSpace(line) Then
                 sb.AppendLine()
             Else
                 sb.AppendLine($"      {line.TrimEnd()}")
+            End If
+        Next
+
+    End Sub
+
+    Private Structure ValidationResult
+        Public Errors As List(Of String)
+        Public Warnings As List(Of String)
+
+        Public Sub New(errors As List(Of String), warnings As List(Of String))
+            Me.Errors = errors
+            Me.Warnings = warnings
+        End Sub
+    End Structure
+
+    Private Function ValidateLambdaSyntax(content As String) As ValidationResult
+        Dim errors As New List(Of String)
+        Dim warnings As New List(Of String)
+        Dim lines = content.Split({vbCrLf, vbLf, Environment.NewLine}, StringSplitOptions.RemoveEmptyEntries)
+
+        Dim bracketStack As New Stack(Of Char)
+        Dim inMultiLineComment As Boolean = False
+        Dim declaredVariables As New HashSet(Of String)
+
+        For lineNum As Integer = 0 To lines.Length - 1
+            Dim line = lines(lineNum)
+            Dim trimmedLine = line.Trim()
+
+            ' Skip empty lines
+            If String.IsNullOrWhiteSpace(trimmedLine) Then Continue For
+
+            ' Check multi-line comments
+            If trimmedLine.Contains("/*") Then inMultiLineComment = True
+            If trimmedLine.Contains("*/") Then inMultiLineComment = False
+            If inMultiLineComment Then Continue For
+
+            ' Skip single line comments
+            If trimmedLine.StartsWith("//") Then Continue For
+
+            ' Remove inline comments for analysis
+            Dim codeOnly = trimmedLine
+            If trimmedLine.Contains("//") Then
+                codeOnly = trimmedLine.Substring(0, trimmedLine.IndexOf("//")).Trim()
+            End If
+
+            ' 1. BRACKET AND PARENTHESES VALIDATION
+            ValidateBrackets(codeOnly, lineNum + 1, bracketStack, errors)
+
+            ' 2. SEMICOLON VALIDATION
+            ValidateSemicolons(codeOnly, lineNum + 1, errors, warnings)
+
+            ' 3. VARIABLE DECLARATIONS
+            TrackVariableDeclarations(codeOnly, declaredVariables)
+
+            ' 4. ESPHome SPECIFIC VALIDATIONS
+            ValidateESPHomeSpecific(codeOnly, lineNum + 1, errors, warnings, declaredVariables)
+
+            ' 5. C++ SYNTAX VALIDATIONS
+            ValidateCppSyntax(codeOnly, lineNum + 1, errors, warnings)
+
+            ' 6. COMMON MISTAKES
+            ValidateCommonMistakes(codeOnly, lineNum + 1, warnings)
+        Next
+
+        ' Final bracket balance check
+        If bracketStack.Count > 0 Then
+            errors.Add($"Unmatched opening brackets: {String.Join("", bracketStack.Reverse())}")
+        End If
+
+        Return New ValidationResult(errors, warnings)
+    End Function
+
+    Private Sub ValidateBrackets(line As String, lineNum As Integer, bracketStack As Stack(Of Char), errors As List(Of String))
+        For Each c As Char In line
+            Select Case c
+                Case "("c, "{"c, "["c
+                    bracketStack.Push(c)
+                Case ")"c
+                    If bracketStack.Count = 0 Then
+                        errors.Add($"Line {lineNum}: Unmatched closing parenthesis")
+                    ElseIf bracketStack.Pop() <> "("c Then
+                        errors.Add($"Line {lineNum}: Mismatched brackets")
+                    End If
+                Case "}"c
+                    If bracketStack.Count = 0 Then
+                        errors.Add($"Line {lineNum}: Unmatched closing brace")
+                    ElseIf bracketStack.Pop() <> "{"c Then
+                        errors.Add($"Line {lineNum}: Mismatched brackets")
+                    End If
+                Case "]"c
+                    If bracketStack.Count = 0 Then
+                        errors.Add($"Line {lineNum}: Unmatched closing bracket")
+                    ElseIf bracketStack.Pop() <> "["c Then
+                        errors.Add($"Line {lineNum}: Mismatched brackets")
+                    End If
+            End Select
+        Next
+    End Sub
+
+    Private Sub ValidateSemicolons(line As String, lineNum As Integer, errors As List(Of String), warnings As List(Of String))
+        ' Lines that should end with semicolon
+        Dim shouldHaveSemicolon = {
+            "return", "break", "continue", "++", "--", "=", "+=", "-=", "*=", "/="
+        }
+
+        ' Lines that shouldn't end with semicolon
+        Dim shouldNotHaveSemicolon = {
+            "if", "else", "for", "while", "switch", "case", "default", "{"
+        }
+
+        Dim endsWithSemicolon = line.TrimEnd().EndsWith(";")
+
+        ' Check if line should have semicolon
+        For Each pattern In shouldHaveSemicolon
+            If line.Contains(pattern) AndAlso Not line.Contains("==") AndAlso Not line.Contains("!=") Then
+                If Not endsWithSemicolon AndAlso Not line.TrimEnd().EndsWith("{") Then
+                    errors.Add($"Line {lineNum}: Missing semicolon")
+                    Exit For
+                End If
+            End If
+        Next
+
+        ' Check if line shouldn't have semicolon
+        For Each pattern In shouldNotHaveSemicolon
+            If line.TrimStart().StartsWith(pattern) AndAlso endsWithSemicolon Then
+                warnings.Add($"Line {lineNum}: Unnecessary semicolon after '{pattern}'")
+                Exit For
+            End If
+        Next
+    End Sub
+
+    Private Sub TrackVariableDeclarations(line As String, declaredVariables As HashSet(Of String))
+        ' Track variable declarations (auto, int, float, bool, string, etc.)
+        Dim variablePatterns = {
+            "auto\s+(\w+)", "int\s+(\w+)", "float\s+(\w+)", "bool\s+(\w+)",
+            "String\s+(\w+)", "std::string\s+(\w+)", "double\s+(\w+)"
+        }
+
+        For Each pattern In variablePatterns
+            Dim matches = System.Text.RegularExpressions.Regex.Matches(line, pattern)
+            For Each match As System.Text.RegularExpressions.Match In matches
+                If match.Groups.Count > 1 Then
+                    declaredVariables.Add(match.Groups(1).Value)
+                End If
+            Next
+        Next
+    End Sub
+
+    Private Sub ValidateESPHomeSpecific(line As String, lineNum As Integer, errors As List(Of String), warnings As List(Of String), declaredVariables As HashSet(Of String))
+        ' 1. ID() function validation
+        Dim idMatches = System.Text.RegularExpressions.Regex.Matches(line, "id\(([^)]+)\)")
+        For Each match As System.Text.RegularExpressions.Match In idMatches
+            Dim idName = match.Groups(1).Value.Trim().Trim(""""c)
+            ' Here you could check against your component list
+            If idName.Contains(" ") Then
+                errors.Add($"Line {lineNum}: ID names cannot contain spaces: '{idName}'")
+            End If
+            If Not System.Text.RegularExpressions.Regex.IsMatch(idName, "^[a-zA-Z_][a-zA-Z0-9_]*$") Then
+                errors.Add($"Line {lineNum}: Invalid ID format: '{idName}'")
+            End If
+        Next
+
+        ' 2. Common ESPHome functions
+        Dim espHomeFunctions = {
+            "ESP_LOGD", "ESP_LOGI", "ESP_LOGW", "ESP_LOGE",
+            "publish_state", "set_level", "turn_on", "turn_off"
+        }
+
+        For Each func In espHomeFunctions
+            If line.Contains($"{func}(") AndAlso Not line.Contains($"{func}();") Then
+                ' Check if function call has proper parameters
+                If line.Split("("c).Length <> line.Split(")"c).Length Then
+                    errors.Add($"Line {lineNum}: Unmatched parentheses in {func}() call")
+                End If
+            End If
+        Next
+
+        ' 3. Variable usage validation - VEREINFACHT und ROBUSTER
+        ' ✅ Einfacher Ansatz: Skip komplette String-Validierung wenn Anführungszeichen vorhanden
+        If line.Contains("""") Then
+            ' Line enthält Strings - skip variable validation für diese Zeile
+            Return
+        End If
+
+        ' ESPHome-spezifische Variablen und Funktionen
+        Dim espHomeBuiltins = {
+            "it", "x", "y", "id", "state", "value", "print", "printf", "println",
+            "has_state", "set_level", "turn_on", "turn_off", "publish_state",
+            "millis", "delay", "digitalRead", "digitalWrite", "analogRead", "analogWrite",
+            "HIGH", "LOW", "INPUT", "OUTPUT", "INPUT_PULLUP",
+            "min", "max", "abs", "round", "floor", "ceil", "sqrt", "pow",
+            "String", "toString", "c_str", "length", "substring", "indexOf",
+            "ESP_LOGD", "ESP_LOGI", "ESP_LOGW", "ESP_LOGE"
+        }
+
+        ' Keywords
+        Dim keywords = {"if", "else", "for", "while", "return", "true", "false", "auto", "int", "float", "double", "bool", "String", "std"}
+
+        Dim variableUsage = System.Text.RegularExpressions.Regex.Matches(line, "\b([a-zA-Z_][a-zA-Z0-9_]*)\b")
+        For Each match As System.Text.RegularExpressions.Match In variableUsage
+            Dim varName = match.Value
+
+            ' Skip if it's a known keyword, builtin, or declared variable
+            If Not keywords.Contains(varName) AndAlso
+               Not espHomeBuiltins.Contains(varName) AndAlso
+               Not declaredVariables.Contains(varName) AndAlso
+               Not line.Contains($"auto {varName}") AndAlso
+               Not line.Contains($"int {varName}") AndAlso
+               Not line.Contains($"{varName}(") Then  ' Skip function calls
+
+                ' Additional check: Skip if it's part of a method call (like it.print)
+                Dim wordIndex = line.IndexOf(varName)
+                If wordIndex > 0 AndAlso line(wordIndex - 1) = "."c Then
+                    Continue For ' Skip method names after dot
+                End If
+
+                ' Could be undefined variable
+                warnings.Add($"Line {lineNum}: Possible undefined variable: '{varName}'")
+            End If
+        Next
+    End Sub
+
+    Private Sub ValidateCppSyntax(line As String, lineNum As Integer, errors As List(Of String), warnings As List(Of String))
+        ' 1. Assignment vs comparison
+        If System.Text.RegularExpressions.Regex.IsMatch(line, "if\s*\([^=]*=[^=]") Then
+            warnings.Add($"Line {lineNum}: Possible assignment in if condition (use == for comparison)")
+        End If
+
+        ' 2. Missing comparison operators
+        If line.Contains("if") AndAlso line.Contains("=") AndAlso Not line.Contains("==") AndAlso Not line.Contains("!=") Then
+            warnings.Add($"Line {lineNum}: Single '=' in if statement - did you mean '=='?")
+        End If
+
+        ' 3. String concatenation
+        If line.Contains("+") AndAlso line.Contains("""") Then
+            warnings.Add($"Line {lineNum}: Use String() constructor for number to string conversion")
+        End If
+
+        ' 4. Array access without bounds check
+        If line.Contains("[") AndAlso line.Contains("]") Then
+            warnings.Add($"Line {lineNum}: Ensure array bounds are checked")
+        End If
+    End Sub
+
+    Private Sub ValidateCommonMistakes(line As String, lineNum As Integer, warnings As List(Of String))
+        ' 1. Delay in lambda (not recommended)
+        If line.ToLower().Contains("delay(") Then
+            warnings.Add($"Line {lineNum}: delay() blocks the main loop - consider using timers instead")
+        End If
+
+        ' 2. Serial.print in ESPHome
+        If line.Contains("Serial.print") Then
+            warnings.Add($"Line {lineNum}: Use ESP_LOG* macros instead of Serial.print")
+        End If
+
+        ' 3. Hardcoded pin numbers
+        If System.Text.RegularExpressions.Regex.IsMatch(line, "\b\d+\b") AndAlso line.ToLower().Contains("pin") Then
+            warnings.Add($"Line {lineNum}: Consider using named constants for pin numbers")
+        End If
+
+        ' 4. Missing const for read-only variables
+        If line.Contains("=") AndAlso Not line.Contains("const") AndAlso Not line.Contains("auto") Then
+            If Not line.Contains("++") AndAlso Not line.Contains("--") AndAlso Not line.Contains("+=") Then
+                warnings.Add($"Line {lineNum}: Consider using 'const' for read-only variables")
+            End If
+        End If
+
+        ' 5. Magic numbers
+        Dim numberMatches = System.Text.RegularExpressions.Regex.Matches(line, "\b\d{2,}\b")
+        For Each match As System.Text.RegularExpressions.Match In numberMatches
+            If Integer.Parse(match.Value) > 100 Then
+                warnings.Add($"Line {lineNum}: Magic number '{match.Value}' - consider using a named constant")
             End If
         Next
     End Sub

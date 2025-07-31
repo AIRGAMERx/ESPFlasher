@@ -455,7 +455,10 @@ Public Class Main
             .Add("Parameter", "Parameter")
             .Add("Filter", "Filter")
             .Add("Class", "Class")
+            .Add("Lambda", "Lambda")
         End With
+        'This Colums is reserved for future use, currently not used
+        DGV_Sensors.Columns("Pins").Visible = False
 
 
         With DGV_Display.Columns
@@ -466,7 +469,10 @@ Public Class Main
             .Add("Parameter", "Parameter")
             .Add("Filter", "Filter")
             .Add("Class", "Class")
+            .Add("Lambda", "Lambda")
         End With
+        'This Colums is reserved for future use, currently not used
+        DGV_Display.Columns("Pins").Visible = False
 
         With DGV_Templates.Columns
             .Add("Gruppe", "Gruppe")
@@ -476,7 +482,10 @@ Public Class Main
             .Add("Parameter", "Parameter")
             .Add("Filter", "Filter")
             .Add("Class", "Class")
+            .Add("Lambda", "Lambda")
         End With
+        'This Colums is reserved for future use, currently not used
+        DGV_Templates.Columns("Pins").Visible = False
         Return Task.CompletedTask
     End Function
 
@@ -881,6 +890,7 @@ Public Class Main
                        MessageBoxIcon.Information)
         End Try
     End Sub
+
 
 
 

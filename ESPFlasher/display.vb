@@ -1,4 +1,5 @@
 ﻿Imports System.IO
+Imports System.Linq.Expressions
 Imports System.Text
 Imports System.Text.RegularExpressions
 Imports Newtonsoft.Json.Linq
@@ -40,7 +41,6 @@ Module display
             uiFields = CType(displayInfo("ui_fields"), JObject)
         End If
 
-
         If displayInfo("required") IsNot Nothing Then
             For Each r In displayInfo("required")
                 Dim fieldName = r.ToString()
@@ -51,7 +51,6 @@ Module display
                 AddDisplayField(fieldName, True, targetPanel, yOffset, fieldConfig)
             Next
         End If
-
 
         If displayInfo("optional") IsNot Nothing Then
             For Each o In displayInfo("optional")
@@ -84,16 +83,38 @@ Module display
             Next
         End If
 
+        ' ✅ NEU: Lambda-Feld hinzufügen (nur wenn nicht schon vorhanden)
+        Dim hasLambdaField As Boolean = False
+
+        ' Prüfe ob Lambda schon in optional/required Feldern ist
+        If displayInfo("optional") IsNot Nothing Then
+            For Each field In displayInfo("optional")
+                If field.ToString().ToLower() = "lambda" Then
+                    hasLambdaField = True
+                    Exit For
+                End If
+            Next
+        End If
+
+        If displayInfo("required") IsNot Nothing Then
+            For Each field In displayInfo("required")
+                If field.ToString().ToLower() = "lambda" Then
+                    hasLambdaField = True
+                    Exit For
+                End If
+            Next
+        End If
+
+        ' Nur hinzufügen wenn noch nicht vorhanden
+        If Not hasLambdaField Then
+            AddDisplayField("lambda", False, targetPanel, yOffset, JObject.Parse("{""type"": ""textbox"", ""multiline"": true}"))
+        End If
 
         If displayInfo("info") IsNot Nothing Then
             For Each o In displayInfo("info")
                 AddInfoField(o.ToString(), targetPanel, yOffset)
             Next
         End If
-
-
-
-
     End Sub
     Public Sub AddDisplayField(fieldName As String, isRequired As Boolean, targetPanel As Panel, ByRef yOffset As Integer, Optional fieldConfig As JObject = Nothing)
         Dim label As New Label With {
@@ -104,7 +125,6 @@ Module display
         targetPanel.Controls.Add(label)
 
         Dim control As Control = Nothing
-
 
         Dim ctrlType As String = If(fieldConfig IsNot Nothing AndAlso fieldConfig("type") IsNot Nothing,
                                 fieldConfig("type").ToString().ToLower(),
@@ -117,10 +137,16 @@ Module display
                 .Location = New Point(230, yOffset),
                 .Width = 150
             }
+                ' ✅ GEÄNDERT: Lambda-Feld bekommt größere Textbox
                 If fieldConfig?("multiline")?.ToObject(Of Boolean) = True Then
                     CType(control, TextBox).Multiline = True
-                    control.Height = 400
-                    control.Width = 400
+                    If fieldName.ToLower() = "lambda" Then
+                        control.Height = 200
+                        control.Width = 500
+                    Else
+                        control.Height = 60
+                        control.Width = 400
+                    End If
                 End If
                 AddHandler CType(control, TextBox).TextChanged, AddressOf ConfigControl_Changed
 
@@ -180,11 +206,11 @@ Module display
         panel.Controls.Add(lbl)
     End Sub
 
-    Private Function CollectCurrentDisplayData() As (Platform As String, Parameters As String, Filters As String)
+    Private Function CollectCurrentDisplayData() As (Platform As String, Parameters As String, Filters As String, Lambda As String)
         Try
             Dim platform As String = ""
             Dim parameterList As New List(Of String)
-
+            Dim lambdaContent As String = ""
 
             If Main.CBB_DisplayGroup.SelectedItem IsNot Nothing AndAlso Main.CBB_DisplayType.SelectedItem IsNot Nothing Then
                 Dim selectedGroup = Main.CBB_DisplayGroup.SelectedItem.ToString()
@@ -198,7 +224,6 @@ Module display
                     platform = displayinfo("platform")?.ToString()
                 End If
             End If
-
 
             For Each ctrl As Control In Main.pnl_DisplayConfig.Controls
                 Dim value As String = ""
@@ -227,20 +252,22 @@ Module display
                 End If
 
                 If Not String.IsNullOrEmpty(fieldName) AndAlso Not String.IsNullOrEmpty(value) Then
-                    parameterList.Add($"{fieldName}={value}")
+                    ' ✅ GEÄNDERT: Lambda separate behandeln
+                    If fieldName.ToLower() = "lambda" Then
+                        lambdaContent = value
+                    Else
+                        parameterList.Add($"{fieldName}={value}")
+                    End If
                 End If
             Next
 
-
             Dim parameters = String.Join(",", parameterList)
-
-
             Dim filterString As String = ""
 
-            Return (platform, parameters, filterString)
+            Return (platform, parameters, filterString, lambdaContent)
 
         Catch ex As Exception
-            Return ("", "", "# Fehler: " & ex.Message)
+            Return ("", "", "# Fehler: " & ex.Message, "")
         End Try
     End Function
     Private Sub UpdateYAMLPreview()
@@ -256,8 +283,8 @@ Module display
             sb.AppendLine("# Live Preview - Nur dieses Display:")
             sb.AppendLine("display:")
 
-
-            WriteDisplayBlock(sb, displayData.Platform, displayData.Parameters, displayData.Filters)
+            ' ✅ GEÄNDERT: Lambda-Parameter hinzugefügt
+            WriteDisplayBlock(sb, displayData.Platform, displayData.Parameters, displayData.Filters, displayData.Lambda)
 
             Main.RTB_yamlPreviewDisplay.Text = sb.ToString()
 
@@ -268,8 +295,9 @@ Module display
     Private Sub ConfigControl_Changed(sender As Object, e As EventArgs)
         UpdateYAMLPreview()
     End Sub
-    Private Sub WriteDisplayBlock(sb As StringBuilder, platform As String, paramString As String, filterCellContent As String)
-        WriteUniversalBlock(sb, BlockType.Display, platform, paramString, filterCellContent)
+    Private Sub WriteDisplayBlock(sb As StringBuilder, platform As String, paramString As String, filterCellContent As String, Optional lambdaCellContent As String = "")
+        ' ✅ GEÄNDERT: Lambda-Parameter hinzugefügt
+        WriteUniversalBlock(sb, BlockType.Display, platform, paramString, filterCellContent, lambdaCellContent)
     End Sub
 
     Public Sub ExportDisplayToYaml(sb As StringBuilder, dgv As DataGridView)
@@ -282,17 +310,18 @@ Module display
 
             Dim platform = row.Cells("Platform").Value?.ToString()?.Trim()
             Dim paramString = row.Cells("Parameter").Value?.ToString()?.Trim()
-            Dim filterString = row.Cells("Filter").Value?.ToString?.Trim()
+            Dim filterString = row.Cells("Filter").Value?.ToString()?.Trim()
+            Dim lambdaContent = row.Cells("Lambda").Value?.ToString()?.Trim()
 
             If String.IsNullOrEmpty(platform) Then Continue For
-
 
             If Not displayExist Then
                 sb.AppendLine("display:")
                 displayExist = True
             End If
 
-            WriteDisplayBlock(sb, platform, paramString, filterString)
+            ' ✅ GEÄNDERT: Lambda-Parameter hinzugefügt
+            WriteDisplayBlock(sb, platform, paramString, filterString, lambdaContent)
         Next
     End Sub
     Public Sub AddDisplayToGrid(displayGroup As String, displayType As String, displayInfo As JObject, paneldisplay As Panel, dgv As DataGridView)
@@ -315,7 +344,6 @@ Module display
                     Case TypeOf ctrl Is ComboBox
                         isEmpty = CType(ctrl, ComboBox).SelectedIndex = -1
                     Case TypeOf ctrl Is NumericUpDown
-                        ' Optional: 0 als leer definieren
                         isEmpty = False ' Hier bewusst erlaubt
                 End Select
 
@@ -323,6 +351,7 @@ Module display
                     MessageBox.Show($"Das Pflichtfeld '{fieldName}' muss ausgefüllt werden.", "Fehler", MessageBoxButtons.OK, MessageBoxIcon.Warning)
                     Return
                 End If
+
                 Dim pinFields = New HashSet(Of String) From {"pin", "trigger_pin", "echo_pin", "cs_pin"}
                 If pinFields.Contains(fieldName.ToLower()) Then
                     Dim pinValue As String = ""
@@ -343,8 +372,9 @@ Module display
             Next
         End If
 
-        ' 2. Parameterliste erzeugen
+        ' 2. Parameter und Lambda sammeln
         Dim parameter As New List(Of String)
+        Dim lambdaContent As String = ""
 
         For Each ctrl As Control In paneldisplay.Controls
             If Not ctrl.Name.Contains("_"c) Then Continue For
@@ -370,7 +400,12 @@ Module display
             End Select
 
             If Not String.IsNullOrWhiteSpace(paramValue) Then
-                parameter.Add($"{paramName}={paramValue}")
+                ' ✅ GEÄNDERT: Lambda separate behandeln
+                If paramName.ToLower() = "lambda" Then
+                    lambdaContent = paramValue
+                Else
+                    parameter.Add($"{paramName}={paramValue}")
+                End If
             End If
         Next
 
@@ -383,24 +418,24 @@ Module display
         ' 4. Zeile zum DataGridView hinzufügen
         If Main.clickedRow > -1 Then
             Try
-
                 Dim row As DataGridViewRow = dgv.Rows(Main.clickedRow)
-                row.Cells(0).Value = displayGroup
-                row.Cells(1).Value = displayType
-                row.Cells(2).Value = platform
-                row.Cells(3).Value = ""
-                row.Cells(4).Value = String.Join(",", parameter)
-                row.Cells(5).Value = ""
-                row.Cells(6).Value = ""
-                MsgBox("Sensor wurde gespeichert")
+                row.Cells("Gruppe").Value = displayGroup
+                row.Cells("Typ").Value = displayType
+                row.Cells("Platform").Value = platform
+                row.Cells("Pins").Value = ""
+                row.Cells("Parameter").Value = String.Join(",", parameter)
+                row.Cells("Filter").Value = ""
+                row.Cells("Class").Value = ""
+                row.Cells("Lambda").Value = lambdaContent
+                MsgBox("Display wurde gespeichert")
                 Main.clickedRow = -1
 
             Catch ex As Exception
 
             End Try
         Else
-            dgv.Rows.Add(displayGroup, displayType, platform, "", String.Join(", ", parameter), "", "")
-
+            ' ✅ GEÄNDERT: Lambda in der Lambda-Spalte speichern
+            dgv.Rows.Add(displayGroup, displayType, platform, "", String.Join(",", parameter), "", "", lambdaContent)
         End If
 
         Main.clickedRow = -1

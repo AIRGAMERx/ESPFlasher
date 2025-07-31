@@ -93,7 +93,8 @@ Module templates
             Next
         End If
 
-        ' Lambda-Beispiele anzeigen (falls vorhanden)
+
+
         If templateInfo("lambda_examples") IsNot Nothing Then
             AddLambdaExamples(templateInfo("lambda_examples"), targetPanel, yOffset)
         End If
@@ -131,7 +132,12 @@ Module templates
                 }
                 If fieldConfig?("multiline")?.ToObject(Of Boolean) = True Then
                     CType(control, TextBox).Multiline = True
-                    control.Height = 80
+                    If fieldName.ToLower() = "lambda" Then
+                        control.Height = 150
+                        control.Width = 500
+                    Else
+                        control.Height = 80
+                    End If
                     CType(control, TextBox).ScrollBars = ScrollBars.Vertical
                 End If
                 If fieldConfig?("placeholder") IsNot Nothing Then
@@ -216,7 +222,7 @@ Module templates
             yOffset += 22
         Next
 
-        yOffset += 10 ' Extra Abstand nach Beispielen
+        yOffset += 10
     End Sub
 
     Private Function CollectCurrentTemplateData() As (Platform As String, Parameters As String, Lambda As String, SensorClass As String)
@@ -245,11 +251,14 @@ Module templates
                     If txt.Name.StartsWith("TXT_") AndAlso Not String.IsNullOrWhiteSpace(txt.Text) Then
                         fieldName = txt.Name.Substring(4) ' "TXT_" entfernen
                         value = txt.Text
-                        ' Lambda separat behandeln
+
+
+
                         If fieldName.ToLower() = "lambda" Then
                             lambdaContent = value
                             Continue For
                         End If
+
                         ' Multiline-Felder (Turn On/Off Actions)
                         If fieldName.ToLower().Contains("action") AndAlso txt.Multiline Then
                             ' Multiline-Aktionen beibehalten
@@ -263,12 +272,12 @@ Module templates
                         fieldName = cmb.Name.Substring(4) ' "CMB_" entfernen  
                         value = cmb.SelectedItem.ToString()
 
-                        ' ✅ ENCODING-FIX für ComboBox-Werte
+
                         If fieldName.ToLower() = "unit_of_measurement" Then
                             ' Kaputte UTF-8 Zeichen reparieren
-                            value = value.Replace("â€", "°")    ' UTF-8 → Windows-1252 Fehler
-                            value = value.Replace("°", "°")     ' Andere kaputte Grad-Symbole
-                            value = value.Replace("â„ƒ", "°C")  ' Weitere mögliche Varianten
+                            value = value.Replace("â€", "°")
+                            value = value.Replace("°", "°")
+                            value = value.Replace("â„ƒ", "°C")
                             value = value.Replace("â„‰", "°F")
                             value = value.Trim()
 
@@ -315,8 +324,22 @@ Module templates
 
             sb.AppendLine("# Live Preview - Nur dieses Template:")
 
-            ' KORRIGIERT: Verwende WriteUniversalBlockWithSensorType direkt
-            WriteUniversalBlockWithSensorType(sb, templateData.SensorClass, templateData.Platform, templateData.Parameters, templateData.Lambda)
+            ' Template-Typ-Header hinzufügen
+            Select Case templateData.SensorClass.ToLower()
+                Case "sensor"
+                    sb.AppendLine("sensor:")
+                Case "binary_sensor"
+                    sb.AppendLine("binary_sensor:")
+                Case "text_sensor"
+                    sb.AppendLine("text_sensor:")
+                Case "switch"
+                    sb.AppendLine("switch:")
+                Case Else
+                    sb.AppendLine("sensor:")
+            End Select
+
+
+            WriteUniversalBlockWithSensorType(sb, templateData.SensorClass, templateData.Platform, templateData.Parameters, "", templateData.Lambda)
 
             Main.RTB_yamlPreviewTemplate.Text = sb.ToString()
 
@@ -324,6 +347,7 @@ Module templates
             Main.RTB_yamlPreviewTemplate.Text = "# Fehler in der Konfiguration:" & vbCrLf & ex.Message
         End Try
     End Sub
+
 
     Private Sub ConfigControl_Changed(sender As Object, e As EventArgs)
         UpdateYAMLPreview()
@@ -374,7 +398,9 @@ Module templates
             Next
         End If
 
+        ' 2. Parameter und Lambda sammeln
         Dim parameter As New List(Of String)
+        Dim lambdaContent As String = ""
 
         For Each ctrl As Control In panelTemplate.Controls
             If Not ctrl.Name.Contains("_"c) Then Continue For
@@ -397,17 +423,26 @@ Module templates
                 Case TypeOf ctrl Is NumericUpDown
                     Dim num = CType(ctrl, NumericUpDown)
                     paramValue = num.Value.ToString()
+
+                Case TypeOf ctrl Is CheckBox
+                    Dim chk = CType(ctrl, CheckBox)
+                    paramValue = If(chk.Checked, "true", "false")
             End Select
 
             If Not String.IsNullOrWhiteSpace(paramValue) Then
-                parameter.Add($"{paramName}={paramValue}")
+
+                If paramName.ToLower() = "lambda" Then
+                    lambdaContent = paramValue
+                Else
+                    parameter.Add($"{paramName}={paramValue}")
+                End If
             End If
         Next
 
-        ' 2. Template-Daten sammeln
+        ' 3. Template-Daten sammeln
         Dim templateData = CollectCurrentTemplateData()
 
-        ' 3. Plattform und SensorClass ermitteln
+        ' 4. Plattform und SensorClass ermitteln
         Dim platform As String = templateData.Platform
         Dim sensorClass As String = templateData.SensorClass
 
@@ -419,7 +454,7 @@ Module templates
             sensorClass = "sensor" ' Fallback
         End If
 
-        ' 4. Zeile zum DataGridView hinzufügen
+        ' 5. Zeile zum DataGridView hinzufügen
         If Main.clickedRow > -1 Then
             Try
                 Dim row As DataGridViewRow = dgv.Rows(Main.clickedRow)
@@ -427,8 +462,9 @@ Module templates
                 row.Cells("Typ").Value = templateType
                 row.Cells("Platform").Value = platform
                 row.Cells("Class").Value = sensorClass
-                row.Cells("Parameter").Value = templateData.Parameters
-                row.Cells("Filter").Value = templateData.Lambda ' Lambda in Filter-Spalte
+                row.Cells("Parameter").Value = String.Join(",", parameter)
+                row.Cells("Filter").Value = ""
+                row.Cells("Lambda").Value = lambdaContent
                 MessageBox.Show("Template wurde aktualisiert", "Erfolg", MessageBoxButtons.OK, MessageBoxIcon.Information)
                 Main.clickedRow = -1
 
@@ -436,14 +472,14 @@ Module templates
                 MessageBox.Show($"Fehler beim Aktualisieren: {ex.Message}", "Fehler", MessageBoxButtons.OK, MessageBoxIcon.Error)
             End Try
         Else
-            ' Neue Zeile hinzufügen
-            dgv.Rows.Add(templateGroup, templateType, platform, "", templateData.Parameters, templateData.Lambda, sensorClass)
+
+            dgv.Rows.Add(templateGroup, templateType, platform, "", String.Join(",", parameter), "", sensorClass, lambdaContent)
             MessageBox.Show("Template wurde hinzugefügt", "Erfolg", MessageBoxButtons.OK, MessageBoxIcon.Information)
         End If
 
         Main.clickedRow = -1
 
-        ' Panel leeren nach erfolgreichem Hinzufügen
+
         panelTemplate.Controls.Clear()
     End Sub
 
@@ -452,7 +488,7 @@ Module templates
             Dim templateGroup = row.Cells("Gruppe").Value?.ToString()
             Dim templateType = row.Cells("Typ").Value?.ToString()
             Dim parameters = row.Cells("Parameter").Value?.ToString()
-            Dim lambdaCode = row.Cells("Filter").Value?.ToString()
+            Dim lambdaCode = row.Cells("Lambda").Value?.ToString()
 
             If String.IsNullOrEmpty(templateGroup) OrElse String.IsNullOrEmpty(templateType) Then
                 Return
@@ -498,13 +534,13 @@ Module templates
 
             Dim fieldName = parts(1).ToLower()
 
-            ' Lambda separat behandeln
+
             If fieldName = "lambda" AndAlso TypeOf ctrl Is TextBox Then
                 CType(ctrl, TextBox).Text = lambdaCode
                 Continue For
             End If
 
-            ' Normale Parameter
+
             If paramDict.ContainsKey(fieldName) Then
                 Dim value = paramDict(fieldName)
 
@@ -568,27 +604,27 @@ Module templates
             For Each row In rows
                 Dim platform = row.Cells("Platform").Value?.ToString()?.Trim()
                 Dim paramString = row.Cells("Parameter").Value?.ToString()?.Trim()
-                Dim lambdaContent = row.Cells("Filter").Value?.ToString()?.Trim()
+                Dim lambdaContent = row.Cells("Lambda").Value?.ToString()?.Trim()
 
                 If String.IsNullOrEmpty(platform) Then Continue For
+
 
                 WriteTemplateSingleBlock(sb, platform, paramString, lambdaContent)
             Next
 
-            sb.AppendLine() ' Leerzeile zwischen Template-Typen
+            sb.AppendLine()
         Next
     End Sub
 
     Private Sub WriteTemplateSingleBlock(sb As StringBuilder, platform As String, paramString As String, lambdaContent As String)
 
-        WriteUniversalBlock(sb, BlockType.Template, platform, paramString, lambdaContent)
+
+
+        WriteUniversalBlock(sb, BlockType.Template, platform, paramString, "", lambdaContent)
     End Sub
 
 
-    Private Sub WriteTemplateBlock(sb As StringBuilder, sensorClass As String, platform As String, paramString As String, lambdaContent As String)
 
-        WriteUniversalBlockWithSensorType(sb, sensorClass, platform, paramString, lambdaContent)
-    End Sub
 
 
 

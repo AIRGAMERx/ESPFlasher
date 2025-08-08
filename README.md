@@ -335,7 +335,7 @@ Every coffee helps fuel new features and keeps the project maintained! Your supp
 This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
 
 ```
-Copyright (c) 2024 Lukas
+Copyright (c) 2025 Lukas
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
